@@ -516,49 +516,41 @@ function _statesFromSol(cube, cur){
     for(let m=0;m<tmp.length;m++){
         let ths = cubeToBig(tmp[m]);
         if(typeof (sol[ths]) === 'undefined'){
-            sol[ths] = [cur[0] + 1, [reverseMove(m)].concat(cur[1]), tmp[m]]
-            //printCube(tmp[m])
-            //printSol(sol[ths][1])
+            sol[ths] = [reverseMove(m)].concat(cur)
             tmparr.push(tmp[m])
-        }else{
-            console.log('----', sol[ths][0], sol[ths][1], reverseMove(m))
-            printCube(sol[ths][2])
-            printCube(tmp[m])
         }
     }
-    console.log(tmparr.length)
     return tmparr;
 }
 
 function statesFromSol(){
-    sol[cubeToBig(s)] = [0, []];
+    sol[cubeToBig(s)] = [];
     let arra = [s]
 
-    for(let n=0;n<1;n++){
+    for(let n=0;n<1000000;n++){
+        if(n >= arra.length){
+            return
+        }
         let cur = sol[cubeToBig(arra[n])];
-        if(cur[0] >= 5){
-            /*for(let m=0;m<n;m++){
-                let chk = sol[cubeToBig(arra[n])];
-            }*/
-            return;
-        }
         let l = _statesFromSol(arra[n], cur);
-        for(let m=0;m<l.length;m++){
-            /*if(cubeToBig(l[m]) === BigInt(8960498937214846041863332958287034707n)){//8960498937214846041863332958287034707n
-                printCube(l[m])
-            }*/
-            arra.push(l[m])
+        if(cur.length < 4){
+            for(let m=0;m<l.length;m++){
+                arra.push(l[m])
+            }
         }
-        return
+        if(n%10000 === 0)(
+            console.log(n, arra.length)
+        )
     }
 }
 
-let count =0;
+function _sol(ar){
+
+}
+
 function main(){
-    let last = 0
 
     statesFromSol()
-    return
     let sta = {}
     validatedata(d)
     sta[cubeToBig(d)] = [0, []]
@@ -566,31 +558,45 @@ function main(){
     let arra = [d]
 
     for(let n=0;n<1000000;n++){
+        if(n >= arra.length){
+            return
+        }
         let cur = sta[cubeToBig(arra[n])];
         let tmp = allMoves(arra[n]) 
         for(let m=0;m<tmp.length;m++){
-            validatedata(tmp[m])
+            //validatedata(tmp[m])
             let ths = cubeToBig(tmp[m]);
             if(typeof (sta[ths]) === 'undefined'){
                 sta[ths] = [cur[0] + 1, cur[1].concat(m)]
                 if(typeof (sol[ths]) !== 'undefined'){
-                    console.log("SOLVED IN ", sol[ths][0] + sta[ths][0], " MOVES")
+                    console.log("SOLVED IN ", sol[ths].length + sta[ths][0], " MOVES")
                     console.log(ths)
                     //console.log(sol[ths])
-                    checkPerm(tmp[m])
-                    console.log(sta[ths][1].concat(sol[ths][1]))
+                    //checkPerm(tmp[m])
+                    console.log(sta[ths][1].concat(sol[ths]))
                     //printSol(sta[ths][1].concat(sol[ths][1]))
                     return;
                 }
-                arra.push(tmp[m])
-                if(last !== cur[0]){
+                if(cur[0] < 4){
+                    /*if(tmp[m][3][2][2] !== 5 || tmp[m][4][2][0] !== 1 || tmp[m][5][2][0] !== 0){
+                        throw new Error("Something went badly wrong!");
+                    }*/
+                    arra.push(tmp[m])
+                }
+                //arra.push(tmp[m])
+                /*if(last !== cur[0]){
                     last = cur[0]
                     console.log(last)
-                }
+                }*/
             }
         }
+        if(n%10000 === 0)(
+            console.log(n, arra.length)
+        )
     }
 }
 main()
+//console.log(getCorners(d))
+//console.log([s[3][2][2], s[4][2][0], s[5][2][0]])
 
 module.exports = { moveSide, moveFront, moveTop, _moveSide, _moveFront, _moveTop, cubeToBig, printCube, copyCube, moves, decodeMove, reverseMove }
