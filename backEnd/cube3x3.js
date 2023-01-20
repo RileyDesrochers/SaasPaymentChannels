@@ -1,4 +1,5 @@
 var assert = require('assert');
+const { deflate } = require('zlib');
 
 function printCube(cube){
     try{
@@ -23,7 +24,7 @@ function cubeToBig(cube){
     for(let n=0;n<6;n++){
         for(let m=0;m<3;m++){
             for(let o=0;o<3;o++){
-                bi += p * BigInt(cube[n][m][0]);
+                bi += p * BigInt(cube[n][m][o]);
                 p *= BigInt(6);
             }
         }
@@ -135,17 +136,20 @@ function allOrientations(cube){
 
 }
 
-function allMoves(cube, cor){
-    cube = copyCube(cube)
-    let o = allOrientations(cube)
-    let s = []
-    for(let n=0;n<o.length;n++){
+function allMoves(cube){
+    let tmp = [move(cube, 0), move(cube, 1), move(cube, 2), move(cube, 3), move(cube, 4), move(cube, 5)]
+    tmp = tmp.concat([move(tmp[0], 0), move(tmp[1], 1), move(tmp[2], 2), move(tmp[3], 3), move(tmp[4], 4), move(tmp[5], 5)])
+    tmp = tmp.concat([move(tmp[6], 0), move(tmp[7], 1), move(tmp[8], 2), move(tmp[9], 3), move(tmp[10], 4), move(tmp[11], 5)])
+    //cube = copyCube(cube)
+    //let o = allOrientations(cube)
+    //let s = []
+    /*for(let n=0;n<o.length;n++){
         s.push(moveAndFix(o[n], 0, 1, cor))
         s.push(moveAndFix(o[n], 0, 2, cor))
         s.push(moveAndFix(o[n], 0, 3, cor))
-    }
+    }*/
     
-    return s
+    return tmp
 }
 
 function moveAndFix(cube, face, n, cor){
@@ -161,11 +165,12 @@ function moveAndFix(cube, face, n, cor){
 }
 
 function _moveTop(cube){
-    fa = [getRow(cube[2], 1), getRow(cube[3], 1), getRow(cube[4], 1), getRow(cube[1], 1)]
+    let fa = [getRow(cube[2], 1), getRow(cube[3], 1), getRow(cube[4], 1), getRow(cube[1], 1)]
     cube[1] = insertRow(cube[1], fa[0], 1)
     cube[2] = insertRow(cube[2], fa[1], 1)
     cube[3] = insertRow(cube[3], fa[2], 1)
     cube[4] = insertRow(cube[4], fa[3], 1)
+    return cube
 }
 
 function moveTop(cube, type){
@@ -183,12 +188,13 @@ function moveTop(cube, type){
     return cube
 }
 
-function _moveFront(cube, type){
-    fa = [getColumn(cube[4], 1).reverse(), getRow(cube[0], 1), getColumn(cube[2], 1).reverse(), getRow(cube[5], 1)]
+function _moveFront(cube){
+    let fa = [getColumn(cube[4], 1).reverse(), getRow(cube[0], 1), getColumn(cube[2], 1).reverse(), getRow(cube[5], 1)]
     cube[0] = insertRow(cube[0], fa[0], 1)
     cube[2] = insertColumn(cube[2], fa[1], 1)
     cube[5] = insertRow(cube[5], fa[2], 1)
     cube[4] = insertColumn(cube[4], fa[3], 1)
+    return cube
 }
 
 function moveFront(cube, type){
@@ -206,12 +212,13 @@ function moveFront(cube, type){
     return cube
 }
 
-function _moveSide(cube, type){
-    fa = [getColumn(cube[1], 1), getColumn(cube[0], 1).reverse(), getColumn(cube[3], 1).reverse(), getColumn(cube[5], 1)]
+function _moveSide(cube){
+    let fa = [getColumn(cube[1], 1), getColumn(cube[0], 1).reverse(), getColumn(cube[3], 1).reverse(), getColumn(cube[5], 1)]
     cube[0] = insertColumn(cube[0], fa[0], 1)
     cube[3] = insertColumn(cube[3], fa[1], 1)
     cube[5] = insertColumn(cube[5], fa[2], 1)
     cube[1] = insertColumn(cube[1], fa[3], 1)
+    return cube
 }
 
 function moveSide(cube, type){
@@ -229,105 +236,64 @@ function moveSide(cube, type){
     return cube
 }
 
-function move(cube, move, n){
-    cube = copyCube(cube);
-
-    assert(n < 4 && n > 0)
-    assert(move < 2 && move < -1)
-    if (move === 0){
-        let f = cube[0]
-        f=rotateFaceClockwise(f, n)
-        cube[0] = f;
-        let fa = [getRow(cube[1], 0), getRow(cube[2], 0), getRow(cube[3], 0), getRow(cube[4], 0)]
-        for (let m = 0; m < n; m++){
-            fa = [fa[1], fa[2], fa[3], fa[0]]
-        }
-        cube[1] = insertRow(cube[1], fa[0], 0)
-        cube[2] = insertRow(cube[2], fa[1], 0)
-        cube[3] = insertRow(cube[3], fa[2], 0)
-        cube[4] = insertRow(cube[4], fa[3], 0)
-        //printCube(cube)
+function move(cube, move){
+    cube = copyCube(cube)
+    switch(move){
+        case 0:
+            return moveTop(cube, 0);
+        case 1:
+            return moveTop(cube, 1);
+        case 2:
+            return moveFront(cube, 0);
+        case 3:
+            return moveFront(cube, 1);
+        case 4:
+            return moveSide(cube, 0);
+        case 5:
+            return moveSide(cube, 1);
+        default:
+            throw new Error("Something went badly wrong!");
     }
-    else if(move === 1){
-        let f = cube[0]
-        f=rotateFaceClockwise(f, n)
-        cube[0] = f;
-        let fa = [getRow(cube[1], 0), getRow(cube[2], 0), getRow(cube[3], 0), getRow(cube[4], 0)]
-        let fa2 = [getRow(cube[1], 1), getRow(cube[2], 1), getRow(cube[3], 1), getRow(cube[4], 1)]
-        for (let m = 0; m < n; m++){
-            fa = [fa[1], fa[2], fa[3], fa[0]]
-            fa2 = [fa2[1], fa2[2], fa2[3], fa2[0]]
-        }
-        cube[1] = insertRow(insertRow(cube[1], fa[0], 0), fa2[0], 1)
-        cube[2] = insertRow(insertRow(cube[2], fa[1], 0), fa2[0], 1)
-        cube[3] = insertRow(insertRow(cube[3], fa[2], 0), fa2[0], 1)
-        cube[4] = insertRow(insertRow(cube[4], fa[3], 0), fa2[0], 1)
-    }else if(move === 2){
-        let f = cube[1]
-        f=rotateFaceClockwise(f, n)
-        cube[1] = f;
-        let fa = [getRow(cube[0], 2), getColumn(cube[4], 2).reverse(), getRow(cube[5], 0).reverse(), getColumn(cube[2], 0)]
-        for (let m = 0; m < n; m++){
-            fa = [fa[1], fa[2], fa[3], fa[0]]
-        }
-        cube[0] = insertRow(cube[0], fa[0], 3)
-        cube[4] = insertRow(cube[4], fa[1], 2)
-        cube[5] = insertRow(cube[5], fa[2], 0)
-        cube[2] = insertRow(cube[2], fa[3], 0)
-    }else if(move === 3){
-        let fa = [getRow(cube[1], 0), getRow(cube[2], 0), getRow(cube[3], 0), getRow(cube[4], 0)]
-        let fa2 = [getRow(cube[1], 1), getRow(cube[2], 1), getRow(cube[3], 1).reverse(), getRow(cube[4], 1).reverse()]
-        for (let m = 0; m < n; m++){
-            fa = [fa[1], fa[2], fa[3], fa[0]]
-        }
-        cube[1] = insertRow(insertRow(cube[1], fa[0], 0), fa2[0], 1)
-        cube[2] = insertRow(insertRow(cube[2], fa[1], 0), fa2[0], 1)
-        cube[3] = insertRow(insertRow(cube[3], fa[2], 0), fa2[0], 1)
-        cube[4] = insertRow(insertRow(cube[4], fa[3], 0), fa2[0], 1)
-    }else if(move === 4){
-        let fa = [getRow(cube[1], 0), getRow(cube[2], 0), getRow(cube[3], 0), getRow(cube[4], 0)]
-        let fa2 = [getRow(cube[1], 1), getRow(cube[2], 1), getRow(cube[3], 1), getRow(cube[4], 1)]
-        for (let m = 0; m < n; m++){
-            fa = [fa[1], fa[2], fa[3], fa[0]]
-            fa2 = [fa2[1], fa2[2], fa2[3], fa2[0]]
-        }
-        cube[1] = insertRow(insertRow(cube[1], fa[0], 0), fa2[0], 1)
-        cube[2] = insertRow(insertRow(cube[2], fa[1], 0), fa2[0], 1)
-        cube[3] = insertRow(insertRow(cube[3], fa[2], 0), fa2[0], 1)
-        cube[4] = insertRow(insertRow(cube[4], fa[3], 0), fa2[0], 1)
-    }else if(move === 5){
-        let fa = [getRow(cube[1], 0), getRow(cube[2], 0), getRow(cube[3], 0), getRow(cube[4], 0)]
-        let fa2 = [getRow(cube[1], 1), getRow(cube[2], 1), getRow(cube[3], 1), getRow(cube[4], 1)]
-        for (let m = 0; m < n; m++){
-            fa = [fa[1], fa[2], fa[3], fa[0]]
-            fa2 = [fa2[1], fa2[2], fa2[3], fa2[0]]
-        }
-        cube[1] = insertRow(insertRow(cube[1], fa[0], 0), fa2[0], 1)
-        cube[2] = insertRow(insertRow(cube[2], fa[1], 0), fa2[0], 1)
-        cube[3] = insertRow(insertRow(cube[3], fa[2], 0), fa2[0], 1)
-        cube[4] = insertRow(insertRow(cube[4], fa[3], 0), fa2[0], 1)
-    }else{
-        throw new Error("Something went badly wrong!");
-    }
-    try{
-        validatedata(cube)
-    }catch(err){
-        console.log('move error', n)
-        printCube(data)
+}
 
+function moves(cube, _move){
+    let m;
+    let times;
+    [m, times] = decodeMove(_move);
+    for(let n=0;n<times;n++){
+        cube = move(cube, m);
     }
     return cube;
+}
+
+function decodeMove(move){
+    return [move%6, Math.floor(move/6)+1];
+}
+
+function reverseMove(move){
+    return (6*(2-Math.floor(move/6)))+move%6;
 }
 
 function getCorner(cube){
     return [cube[0][2][2], cube[1][0][2], cube[2][0][0]]
 }
+function getCorners(cube){
+    return [
+        [cube[0][2][0], cube[1][0][0], cube[4][0][2]].sort(),
+        [cube[0][2][2], cube[1][0][2], cube[2][0][0]].sort(),
+        [cube[0][0][2], cube[2][0][2], cube[3][0][0]].sort(),
+        [cube[0][0][0], cube[3][0][2], cube[4][0][0]].sort(),
+        [cube[1][2][0], cube[4][2][2], cube[5][0][0]].sort(),
+        [cube[1][2][2], cube[2][2][0], cube[5][0][2]].sort(),
+        [cube[2][2][2], cube[3][2][0], cube[5][2][2]].sort(),
+        [cube[3][2][2], cube[4][2][0], cube[5][2][0]].sort()
+    ]
+
+}
 
 function checkCorner(cube, corner){
     let c = getCorner(cube);
     if(corner[0] === c[0] && corner[1] === c[1] && corner[2] === c[2]){
-        //console.log('--->', c)
-        //printCube(cube)
         return true;
     }
     return false;
@@ -368,32 +334,18 @@ function fixCorner(cube, corner){
             throw new Error("Something went badly wrong!");
         }
         let tmp = rotateCubeClockwise(arr[n])
-        //validatedata(tmp)
         let tmp2 = cubeToBig(tmp)
         if(typeof (states[cubeToBig(tmp)]) === 'undefined'){
-            //printCube(tmp)
             states[cubeToBig(tmp)] = tmp
             arr.push(tmp)
         }
         tmp = rotateCubeUp(arr[n])
-        //validatedata(tmp)
         tmp2 = cubeToBig(tmp)
         if(typeof (states[cubeToBig(tmp)]) === 'undefined'){
-            //printCube(tmp)
             states[cubeToBig(tmp)] = tmp
             arr.push(tmp)
         }
     }
-    //console.log(arr)
-    //throw new Error("Something went badly wrong!");
-    
-    /*
-    for(let n=0;n<t.length;n++){
-        let tmp = _fixCorner(t[n], corner);
-        if(tmp[0] === true){
-            return tmp[1];
-        }
-    }*/
 }
 
 function getRow(face, r){
@@ -406,7 +358,7 @@ function insertRow(face, row, r){
 }
 
 function getColumn(face, c){
-    return [face[0][c], f[1][c], f[2][c]];
+    return [face[0][c], face[1][c], face[2][c]];
 }
 
 function insertColumn(face, col, c){
@@ -446,174 +398,6 @@ let d = [
     ],
 ]
 
-let t = [
-    [
-        [1,5,2],
-        [5,5,0],
-        [1,3,2]
-    ],[
-        [3,4,4],
-        [3,1,2],
-        [2,1,5]
-    ],[
-        [3,1,3],
-        [4,4,0],
-        [4,2,5]
-    ],[
-        [0,4,3],
-        [2,2,2],
-        [2,3,5]
-    ],[
-        [4,0,0],
-        [5,0,0],
-        [1,1,0]
-    ],[
-        [5,5,1],
-        [4,3,3],
-        [0,1,4]
-    ],
-]
-
-let tm = [
-    [
-        [2,0,2],
-        [5,5,3],
-        [1,5,1]
-    ],[
-        [4,0,0],
-        [4,4,0],
-        [2,1,5]
-    ],[
-        [3,4,4],
-        [2,2,2],
-        [4,2,5]
-    ],[
-        [3,1,3],
-        [5,0,0],
-        [2,3,5]
-    ],[
-        [0,4,3],
-        [3,1,2],
-        [1,1,0]
-    ],[
-        [5,5,1],
-        [4,3,3],
-        [0,1,4]
-    ],
-]
-
-let f = [
-    [
-        [2,0,2],
-        [5,5,3],
-        [0,0,3]
-    ],[
-        [2,3,4],
-        [1,1,0],
-        [5,2,0]
-    ],[
-        [1,4,4],
-        [5,4,0],
-        [1,2,5]
-    ],[
-        [3,1,3],
-        [2,2,2],
-        [2,3,5]
-    ],[
-        [0,4,5],
-        [5,0,5],
-        [1,1,1]
-    ],[
-        [4,4,3],
-        [4,3,3],
-        [0,1,4]
-    ],
-]
-
-let fm = [
-    [
-        [2,0,2],
-        [1,0,4],
-        [1,5,1]
-    ],[
-        [4,0,0],
-        [3,1,2],
-        [2,1,5]
-    ],[
-        [3,5,4],
-        [4,5,0],
-        [4,3,5]
-    ],[
-        [3,1,3],
-        [2,2,2],
-        [2,3,5]
-    ],[
-        [0,4,3],
-        [5,3,0],
-        [1,3,0]
-    ],[
-        [5,5,1],
-        [2,4,4],
-        [0,1,4]
-    ],
-]
-
-let s = [
-    [
-        [2,0,0],
-        [5,5,2],
-        [1,5,5]
-    ],[
-        [4,0,1],
-        [3,1,3],
-        [2,1,4]
-    ],[
-        [4,4,3],
-        [2,4,4],
-        [5,0,4]
-    ],[
-        [1,1,3],
-        [3,2,2],
-        [2,3,5]
-    ],[
-        [0,4,3],
-        [5,0,0],
-        [1,1,0]
-    ],[
-        [5,5,2],
-        [4,3,2],
-        [0,1,3]
-    ],
-]
-
-let sm = [
-    [
-        [2,0,2],
-        [5,1,3],
-        [1,1,1]
-    ],[
-        [4,5,0],
-        [3,3,2],
-        [2,1,5]
-    ],[
-        [3,4,4],
-        [4,4,0],
-        [4,2,5]
-    ],[
-        [3,5,3],
-        [2,5,2],
-        [2,0,5]
-    ],[
-        [0,4,3],
-        [5,0,0],
-        [1,1,0]
-    ],[
-        [5,3,1],
-        [4,2,3],
-        [0,1,4]
-    ],
-]
-
 /*
 let e = [
     [
@@ -641,70 +425,172 @@ let e = [
         [2,2,2],
         [3,1,3]
     ],
-]
+]*/
 
 let s = [
     [
-        [0,0,0],
-        [0,0,0],
-        [0,0,0]
-    ],[
-        [1,1,1],
-        [1,1,1],
-        [1,1,1]
-    ],[
-        [2,2,2],
-        [2,2,2],
-        [2,2,2]
+        [4,4,4],
+        [4,4,4],
+        [4,4,4]
     ],[
         [3,3,3],
         [3,3,3],
         [3,3,3]
     ],[
-        [4,4,4],
-        [4,4,4],
-        [4,4,4]
+        [2,2,2],
+        [2,2,2],
+        [2,2,2]
     ],[
         [5,5,5],
         [5,5,5],
         [5,5,5]
-    ],
-]*/
+    ],[
+        [1,1,1],
+        [1,1,1],
+        [1,1,1]
+    ],[
+        [0,0,0],
+        [0,0,0],
+        [0,0,0]
+    ]
+]
+
+function printMove(move){
+    let t = Math.floor(move/6) + 1
+    let m = move%6
+    switch(m){
+        case 0:
+            console.log("spin the top face clockwise ", t, " times")
+            return;
+        case 1:
+            console.log("spin the top and middle clockwise ", t, " times")
+            return;
+        case 2:
+            console.log("spin the front face clockwise ", t, " times")
+            return;
+        case 3:
+            console.log("spin the front and middle clockwise ", t, " times")
+            return;
+        case 4:
+            console.log("spin the side face clockwise ", t, " times")
+            return;
+        case 5:
+            console.log("spin the side and middle clockwise ", t, " times")
+            return;
+        default:
+            throw new Error("Something went badly wrong!");
+    }
+}
+
+function printSol(moves){
+    //cube = copyCube(d)
+    for(let n=0;n<moves.length;n++){
+        /*for(let m=0;m<t;m++){
+            cube = move(cube, m)
+        }*/
+        //printCube(cube)
+        printMove(moves[n]);
+    }
+}
+
+let sol = {}
+
+function checkPerm(cube){
+    printCube(cube)
+    let m = sol[cubeToBig(cube)][1];
+    //let start = cubeToBig(cube);
+    let tmp = copyCube(cube)
+    for(let n=0;n<m.length;n++){
+        tmp = moves(tmp, m[n])
+    }
+    if(cubeToBig(s) !== cubeToBig(tmp)){
+        console.log('cube error')
+        printCube(cube)
+        printCube(tmp)
+    }
+}
+
+function _statesFromSol(cube, cur){
+    let tmp = allMoves(cube)
+    let tmparr = [];
+    for(let m=0;m<tmp.length;m++){
+        let ths = cubeToBig(tmp[m]);
+        if(typeof (sol[ths]) === 'undefined'){
+            sol[ths] = [cur[0] + 1, [reverseMove(m)].concat(cur[1]), tmp[m]]
+            //printCube(tmp[m])
+            //printSol(sol[ths][1])
+            tmparr.push(tmp[m])
+        }else{
+            console.log('----', sol[ths][0], sol[ths][1], reverseMove(m))
+            printCube(sol[ths][2])
+            printCube(tmp[m])
+        }
+    }
+    console.log(tmparr.length)
+    return tmparr;
+}
+
+function statesFromSol(){
+    sol[cubeToBig(s)] = [0, []];
+    let arra = [s]
+
+    for(let n=0;n<1;n++){
+        let cur = sol[cubeToBig(arra[n])];
+        if(cur[0] >= 5){
+            /*for(let m=0;m<n;m++){
+                let chk = sol[cubeToBig(arra[n])];
+            }*/
+            return;
+        }
+        let l = _statesFromSol(arra[n], cur);
+        for(let m=0;m<l.length;m++){
+            /*if(cubeToBig(l[m]) === BigInt(8960498937214846041863332958287034707n)){//8960498937214846041863332958287034707n
+                printCube(l[m])
+            }*/
+            arra.push(l[m])
+        }
+        return
+    }
+}
 
 let count =0;
 function main(){
+    let last = 0
 
+    statesFromSol()
+    return
     let sta = {}
     validatedata(d)
-    let cor = getCorner(d)
-    sta[cubeToBig(d)] = 0
+    sta[cubeToBig(d)] = [0, []]
 
     let arra = [d]
 
-    for(let n=0;n<50000;n++){
-        let tmp = allMoves(arra[n], cor) 
+    for(let n=0;n<1000000;n++){
+        let cur = sta[cubeToBig(arra[n])];
+        let tmp = allMoves(arra[n]) 
         for(let m=0;m<tmp.length;m++){
             validatedata(tmp[m])
-            if(checkIfSolved(tmp[m])){
-                console.log("SOLVED IN ", sta[cubeToBig(arra[n])] + 1, " MOVES")
-                return
-            }
-            if(typeof (sta[cubeToBig(tmp[m])]) === 'undefined'){
-                sta[cubeToBig(tmp[m])] = sta[cubeToBig(arra[n])] + 1
+            let ths = cubeToBig(tmp[m]);
+            if(typeof (sta[ths]) === 'undefined'){
+                sta[ths] = [cur[0] + 1, cur[1].concat(m)]
+                if(typeof (sol[ths]) !== 'undefined'){
+                    console.log("SOLVED IN ", sol[ths][0] + sta[ths][0], " MOVES")
+                    console.log(ths)
+                    //console.log(sol[ths])
+                    checkPerm(tmp[m])
+                    console.log(sta[ths][1].concat(sol[ths][1]))
+                    //printSol(sta[ths][1].concat(sol[ths][1]))
+                    return;
+                }
                 arra.push(tmp[m])
-                if(count<sta[cubeToBig(tmp[m])]){
-                    count = sta[cubeToBig(tmp[m])]
-                    console.log(count)
+                if(last !== cur[0]){
+                    last = cur[0]
+                    console.log(last)
                 }
             }
         }
     }
-    console.log(arra.length)
 }
-//main()
-validatedata(t)
-validatedata(tm)
-validatedata(f)
-validatedata(fm)
-validatedata(s)
-validatedata(sm)
+main()
+
+module.exports = { moveSide, moveFront, moveTop, _moveSide, _moveFront, _moveTop, cubeToBig, printCube, copyCube, moves, decodeMove, reverseMove }
