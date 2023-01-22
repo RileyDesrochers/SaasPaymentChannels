@@ -552,7 +552,7 @@ function statesFromSol(){
         }
         let cur = sol[cubeToBig(arra[n])];
         let l = _statesFromSol(arra[n], cur);
-        if(cur.length < 3){
+        if(cur.length < 4){
             for(let m=0;m<l.length;m++){
                 arra.push(l[m])
             }
@@ -618,7 +618,7 @@ function main(){
         )
     }*/
 }
-//main()
-printCube(move(d, 5))
+main()
+//printCube(move(d, 5))
 
 module.exports = { moveSide, moveFront, moveTop, _moveSide, _moveFront, _moveTop, cubeToBig, printCube, copyCube, moves, decodeMove, reverseMove }

@@ -1,8 +1,10 @@
 #[allow(dead_code)]
-use num_bigint::BigUint;
+//use num_bigint::BigUint;
+use bigint::U256;
 use std::collections::HashMap;
 use std::alloc;
 use cap::Cap;
+//use queues::*;
 //use std::env;
 
 #[global_allocator]
@@ -23,19 +25,34 @@ fn print_cube(cube: Vec<Vec<Vec<u8>>>){
     println!("----------------------------------------");
 }
 
-fn cube_to_big(cube: Vec<Vec<Vec<u8>>>) -> BigUint {
-    let mut bi: BigUint = BigUint::new(vec![0]);
-    let mut p: BigUint = BigUint::new(vec![1]);
-    //let mul: BigUint = BigUint::new(vec![6]);
+fn cube_to_big(cube: &Vec<Vec<Vec<u8>>>) -> U256 {
+    let mut bi: U256 = U256::zero();
+    let mut p: U256 = U256::one();
+    let six = U256::from(6);
     for n in 0..6 {
         for m in 0..3 {
             for o in 0..3 {
-                bi = bi + p.clone() * cube[n][m][o];
-                p = p * BigUint::new(vec![6]);
+                bi = bi + p * U256::from(cube[n][m][o]);
+                p = p * six;
             }
         }
     }
     return bi
+}
+
+fn big_to_cube(mut bi: U256) -> Vec<Vec<Vec<u8>>> {
+    let mut cube = vec![get_solid_face(0), get_solid_face(0), get_solid_face(0), get_solid_face(0), get_solid_face(0), get_solid_face(0)];
+    let mut p: U256 = U256::one();
+    let six = U256::from(6);
+    for n in 0..6 {
+        for m in 0..3 {
+            for o in 0..3 {
+                cube[n][m][o] = (bi%six).byte(0);
+                bi = bi/six;
+            }
+        }
+    }
+    return cube
 }
 
 fn rev(v: Vec<u8>) -> Vec<u8> {
@@ -62,8 +79,6 @@ fn rotate_face_clockwise(face: &Vec<Vec<u8>>) -> Vec<Vec<u8>> {
     return vec![vec![face[2][0], face[1][0], face[0][0]], vec![face[2][1], face[1][1], face[0][1]], vec![face[2][2], face[1][2], face[0][2]]]
 }
 
-//single use---------------
-
 fn get_solid_face(c: u8) -> Vec<Vec<u8>>{
     return vec![
         vec![c, c, c],
@@ -71,6 +86,8 @@ fn get_solid_face(c: u8) -> Vec<Vec<u8>>{
         vec![c, c, c]
     ]
 }
+
+//single use---------------
 
 fn get_solved_cube(cube: Vec<Vec<Vec<u8>>>) -> Vec<Vec<Vec<u8>>> {//zero one two three four five
     let (_three, four, five): (u8, u8, u8);
@@ -168,46 +185,64 @@ fn move_side(cube: &Vec<Vec<Vec<u8>>>, t: u8) -> Vec<Vec<Vec<u8>>> {
     return cpy;
 }
 
-fn single_move(cube: Vec<Vec<Vec<u8>>>, mv: u8) -> Vec<Vec<Vec<u8>>> {
+fn single_move(cube: &Vec<Vec<Vec<u8>>>, mv: u8) -> Vec<Vec<Vec<u8>>> {
     match mv {
-        0 => return move_top(&cube, 0),
-        1 => return move_top(&cube, 1),
-        2 => return move_front(&cube, 0),
-        3 => return move_front(&cube, 1),
-        4 => return move_side(&cube, 0),
-        5 => return move_side(&cube, 1),
-        _ => return cube,
+        0 => return move_top(cube, 0),
+        1 => return move_top(cube, 1),
+        2 => return move_front(cube, 0),
+        3 => return move_front(cube, 1),
+        4 => return move_side(cube, 0),
+        5 => return move_side(cube, 1),
+        _ => return cube.clone(),
     }
 }
 
 //high level functions
 
-fn all_moves(cube: Vec<Vec<Vec<u8>>>) -> Vec<Vec<Vec<Vec<u8>>>>{
-    let mut tmp = vec![single_move(cube.clone(), 0), single_move(cube.clone(), 1), single_move(cube.clone(), 2), single_move(cube.clone(), 3), single_move(cube.clone(), 4), single_move(cube.clone(), 5)];
-    tmp.append(&mut vec![single_move(tmp[0].clone(), 0), single_move(tmp[1].clone(), 1), single_move(tmp[2].clone(), 2), single_move(tmp[3].clone(), 3), single_move(tmp[4].clone(), 4), single_move(tmp[5].clone(), 5)]);
-    tmp.append(&mut vec![single_move(tmp[6].clone(), 0), single_move(tmp[7].clone(), 1), single_move(tmp[8].clone(), 2), single_move(tmp[9].clone(), 3), single_move(tmp[10].clone(), 4), single_move(tmp[11].clone(), 5)]);
+fn all_moves(cube: &Vec<Vec<Vec<u8>>>) -> Vec<Vec<Vec<Vec<u8>>>>{
+    let mut tmp = vec![single_move(cube, 0), single_move(cube, 1), single_move(cube, 2), single_move(cube, 3), single_move(cube, 4), single_move(cube, 5)];
+    tmp.append(&mut vec![single_move(&tmp[0], 0), single_move(&tmp[1], 1), single_move(&tmp[2], 2), single_move(&tmp[3], 3), single_move(&tmp[4], 4), single_move(&tmp[5], 5)]);
+    tmp.append(&mut vec![single_move(&tmp[6], 0), single_move(&tmp[7], 1), single_move(&tmp[8], 2), single_move(&tmp[9], 3), single_move(&tmp[10], 4), single_move(&tmp[11], 5)]);
     return tmp;
 }
 
-fn states_from_sol(cube: Vec<Vec<Vec<u8>>>) -> HashMap<BigUint, Vec<u8>> {
+fn states_from_sol(cube: Vec<Vec<Vec<u8>>>) -> HashMap<U256, Vec<u8>> {
     let mut sol = HashMap::new();
-    sol.insert(cube_to_big(cube.clone()), vec![]);
+    sol.insert(cube_to_big(&cube), vec![]);
     //sol[cubeToBig(s)] = [];
     let mut arra: Vec<Vec<Vec<Vec<u8>>>> = vec![cube];
-    //for(let n=0;n<1000000;n++){
-    for n in 0..100000 {
+    for n in 0..10000000 {
         if arra.len() <= n {
             return sol;
         }
-        let cur = sol[&cube_to_big(arra[n].clone())].clone();
-        //println!("{:?}", cur.clone());
-        let mvs = all_moves(arra[n].clone());
+        let cur = sol[&cube_to_big(&arra[n])].clone();
+        for m in 0..6 {
+            let mut mv = arra[n].clone();
+            for o in 0..3 {
+                mv = single_move(&mv, m);
+                let key = cube_to_big(&mv).clone();
+                if !sol.contains_key(&key) {
+                    sol.insert(key, vec![vec![(m+(o*6)).try_into().unwrap()], cur.clone()].concat());
+                    if cur.len() < 2 {
+                        arra.push(mv.clone());
+                    }
+                }
+            }
+        }
+        if n%10000 == 0 {
+            println!("{} {}", n, arra.len())
+        }
+        //println!("{}", arra.len());
+        //let mvs = all_moves(&arra[n]);
         /*for n in mvs {
             print_cube(n);
         }*/
         //let l = _statesFromSol(arra[n], cur);
-        for m in 0..mvs.len() {
-            let key = cube_to_big(mvs[m].clone()).clone();
+
+
+
+        /*for m in 0..mvs.len() {
+            let key = cube_to_big(&mvs[m]).clone();
             if !sol.contains_key(&key) {
                 //let mv: Vec<u8> = vec![m.try_into().unwrap()];
                 sol.insert(key, vec![vec![m.try_into().unwrap()], cur.clone()].concat());
@@ -217,7 +252,9 @@ fn states_from_sol(cube: Vec<Vec<Vec<u8>>>) -> HashMap<BigUint, Vec<u8>> {
                 //println!("{:?}", vec![mv, cur.clone()].concat());
                 
             }
-        }
+        }*/
+
+
 
         /*if(n%10000 === 0)(
             console.log(n, arra.length)
@@ -228,7 +265,7 @@ fn states_from_sol(cube: Vec<Vec<Vec<u8>>>) -> HashMap<BigUint, Vec<u8>> {
 }
 
 fn main(){
-    ALLOCATOR.set_limit(4 *1024 * 1024 * 1024).unwrap();
+    ALLOCATOR.set_limit(8 *1024 * 1024 * 1024).unwrap();
     //env::set_var("RUST_BACKTRACE", "1");
     let cube: Vec<Vec<Vec<u8>>> = vec![
         vec![
@@ -257,25 +294,51 @@ fn main(){
             vec![0,1,4]
         ]
     ];
-    print_cube(single_move(cube.clone(), 5));
-    return;
-    let sol: HashMap<BigUint, Vec<u8>> = states_from_sol(get_solved_cube(cube.clone()));
+    //print_cube(single_move(cube.clone(), 5));
+    
+    let sol: HashMap<U256, Vec<u8>> = states_from_sol(get_solved_cube(cube.clone()));
     /*for (n, m) in sol {
         println!("{} {:?}", n, m);
     }*/
     //println!("{}", sol.len());
+    print_cube(cube.clone());
+    print_cube(big_to_cube(cube_to_big(&cube)));
 
-    let mut sta: HashMap<BigUint, Vec<u8>> = HashMap::new();
-    let mut arra: Vec<Vec<Vec<Vec<u8>>>> = vec![cube.clone()];
-    sta.insert(cube_to_big(cube.clone()), vec![]);
-    for n in 0..1000000 {
+    return;
+    let mut sta: HashMap<U256, Vec<u8>> = HashMap::new();
+    let mut arra: Vec<Vec<Vec<Vec<u8>>>> = vec![cube];
+    sta.insert(cube_to_big(&arra[0]), vec![]);
+    for n in 0..10000000 {
         if arra.len() <= n {
             return;
         }
-        let cur = sta[&cube_to_big(arra[n].clone())].clone();
-        let mvs = all_moves(arra[n].clone());
+        let cur = sta[&cube_to_big(&arra[n])].clone();
+
+        for m in 0..6 {
+            let mut mv = arra[n].clone();
+            for o in 0..3 {
+                mv = single_move(&mv, m);
+                let key = cube_to_big(&mv).clone();
+                if !sta.contains_key(&key) {
+                    sta.insert(key.clone(), vec![cur.clone(), vec![(m+(o*6)).try_into().unwrap()]].concat());
+                    if sol.contains_key(&key) {
+                        println!("{:?}", vec![sta[&key].clone(), sol[&key].clone()].concat());
+                        print_cube(mv.clone());
+                        return;
+                    }
+                    if cur.len() < 2 {
+                        arra.push(mv.clone());
+                    }
+                }
+            }
+        }
+        if n%10000 == 0 {
+            println!("{} {}", n, arra.len())
+        }
+        /*
+        let mvs = all_moves(&arra[n]);
         for m in 0..mvs.len() {
-            let key = cube_to_big(mvs[m].clone());
+            let key = cube_to_big(&mvs[m]);
             if !sta.contains_key(&key) {
                 //sta[key] = cur.concat(m)
                 sta.insert(key.clone(), vec![cur.clone(), vec![m.try_into().unwrap()]].concat());
@@ -291,28 +354,19 @@ fn main(){
                     //printSol(sta[key][1].concat(sol[key][1]))
                     return;
                 }
-                if cur.len() < 3 {
+                if cur.len() < 6 {
                     arra.push(mvs[m].clone());
-                }/*else{
-                    _sol([[tmp[m], sta[key]]], 2)
-                    //arn.push([tmp[m], sta[key]])
-                }*/
+                }
                 //arra.push(tmp[m])
             }
-        }
-        /*if(n%100 === 0)(
-            console.log(n, arra.length)
-        )*/
+        }*/
     }
-    //println!("{}", cube_to_big(get_solved_cube(cube.clone())));
-    //println!("{}", cube_to_big(cube.clone()));
     //let mut cu = cube.clone();
     //cu[0] = rotateFaceClockwise(cu[0].clone(), 2);
     //let x = all_moves(cube.clone());
     /*for n in x {
         print_cube(n);
     }*/
-    //print_cube(single_move(cube.clone(), 5))
 
     //print_cube(get_solved_cube(cube));
 }
