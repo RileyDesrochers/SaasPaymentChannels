@@ -12,6 +12,4 @@ let s = [
     new Uint8Array([0, 7, 0, 0, 0, 0, 0, 3, 0])
 ];
 
-console.log(s.length);
-
 console.log(wasm.sol(s));

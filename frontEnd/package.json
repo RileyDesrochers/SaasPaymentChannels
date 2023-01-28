@@ -2,17 +2,27 @@
   "name": "dao_liquidity",
   "version": "0.1.0",
   "private": true,
+  "bin": {
+    "create-wasm-app": ".bin/create-wasm-app.js"
+  },
   "dependencies": {
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
     "@web3-react/injected-connector": "^6.0.7",
+    "as-bind": "^0.8.2",
     "bootstrap": "^5.2.3",
+    "copy-webpack-plugin": "^5.0.0",
+    "ethers": "^5.7.2",
+    "hello-wasm-pack": "^0.1.0",
     "react": "^18.2.0",
     "react-bootstrap": "^2.6.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "webpack": "^4.29.3",
+    "webpack-cli": "^3.1.0",
+    "webpack-dev-server": "^3.1.5"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -20,6 +30,12 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
+  "keywords": [
+    "webassembly",
+    "wasm",
+    "rust",
+    "webpack"
+  ],
   "eslintConfig": {
     "extends": [
       "react-app",

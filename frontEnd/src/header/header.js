@@ -1,19 +1,18 @@
 import Container from 'react-bootstrap/Container';
 import Navbar from 'react-bootstrap/Navbar';
 import Button from 'react-bootstrap/Button';
-import './header.css';
+import ConnectButton from './connectButton/connectButton.js';
+//<Button variant="primary">Connect Wallet</Button>{' '}
 
 function Header() {
   return (
-    <Navbar>
-        <Container>
-            <Navbar.Brand href="#home">Dao Owned Liquidity</Navbar.Brand>
-            <Navbar.Toggle />
-            <Navbar.Collapse className="justify-content-end">
-                <Button variant="primary">Connect Wallet</Button>{' '}
-            </Navbar.Collapse>
-        </Container>
-    </Navbar>
+    <nav class="navbar navbar-dark bg-primary">
+      <Container>
+        <Navbar.Brand href="#home">SAAS Payment Channels</Navbar.Brand>
+        <Navbar.Toggle />
+          <ConnectButton />
+      </Container>
+    </nav>
   );
 }
 

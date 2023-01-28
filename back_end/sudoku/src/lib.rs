@@ -222,21 +222,9 @@ fn solve(puzzle: &mut Vec<Vec<Vec<u8>>>) -> bool {
 
 #[wasm_bindgen]
 pub fn sol(s: js_sys::Array) -> js_sys::Array{
-    let mut puzzle: Vec<Vec<Vec<u8>>> = vec![
-        vec![vec![]; 9],
-        vec![vec![]; 9],
-        vec![vec![]; 9],
-
-        vec![vec![]; 9],
-        vec![vec![]; 9],
-        vec![vec![]; 9],
-
-        vec![vec![]; 9],
-        vec![vec![]; 9],
-        vec![vec![]; 9]
-    ];
+    let mut puzzle: Vec<Vec<Vec<u8>>> = vec![vec![vec![]; 9]; 9];
     let bytes: Vec<JsValue> = s.to_vec();
-    let mut puz: Vec<Vec<u8>> = vec![
+    let puz: Vec<Vec<u8>> = vec![
         js_sys::Uint8Array::new(&bytes[0]).to_vec(),
         js_sys::Uint8Array::new(&bytes[1]).to_vec(),
         js_sys::Uint8Array::new(&bytes[2]).to_vec(),
@@ -257,7 +245,7 @@ pub fn sol(s: js_sys::Array) -> js_sys::Array{
         }
     }
     if solve(&mut puzzle) {
-        let mut t = js_sys::Array::new_with_length(9);
+        let t = js_sys::Array::new_with_length(9);
         for n in 0..9 {
             let arr = js_sys::Uint8Array::new_with_length(9);
             arr.copy_from(&puzzle[n].concat());
@@ -266,14 +254,5 @@ pub fn sol(s: js_sys::Array) -> js_sys::Array{
         return t;
     }
     return s;
-
-
-    /*for n in 0..puzzle.len() {
-        for m in 0..puzzle[n].len() {
-            if puzzle[n][m] == all_possibilities() {
-                puzzle[n][m] = vec![0];
-            }
-        }
-    }*/
 
 }
