@@ -12,4 +12,7 @@ let s = [
     new Uint8Array([0, 7, 0, 0, 0, 0, 0, 3, 0])
 ];
 
-console.log(wasm.sol(s));
+//console.log(wasm.sol(s));
+s[0][2] = 5
+//console.log(s);
+

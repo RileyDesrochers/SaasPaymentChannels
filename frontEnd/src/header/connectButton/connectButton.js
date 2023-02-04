@@ -1,41 +1,44 @@
-import { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
+//import { setBal } from '../../web3_store.js'
+import { useConnect, useAccount} from 'wagmi'
+//import { useDispatch } from 'react-redux'
+//const contract = require('../../Channel.json');
 
 function ConnectButton() {
-  const [accountAddress, setAccountAddress] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
+  const { connect, connectors } = useConnect(
+    /*{
+      onSuccess(data) {
+        useContractRead({
+          address: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+          abi: contract.abi,
+          functionName: 'balanceOf',
+          args: [data.address],
+          chainId: 31337,
+          onSuccess(data) {
+            dispatch(setBal(data));
+            console.log(data);
+          }
+        })
+        console.log(data);
+      }
+    }*/
+  );
 
-  const { ethereum } = window;
-  const provider = new ethers.providers.Web3Provider(window.ethereum);
-
-  //useEffect(() => { const { ethereum } = window;}, []);
-
-  const connectWallet = async () => {
-    try {
-      const accounts = await ethereum.request({
-        method: 'eth_requestAccounts',
-      });
-      setAccountAddress(accounts[0]);
-      setIsConnected(true);
-    } catch (error) {
-      setIsConnected(false);
-    }
-  };
+  const { address } = useAccount()
 
   return (
     <div className="ConnectButton">
-        {isConnected ? (
-        <button className="btn">
-            {accountAddress.slice(0, 4)}...
-            {accountAddress.slice(38, 42)}
+      {connectors.map((connector) => (
+        <button
+          disabled={!connector.ready}
+          key={connector.id}
+          onClick={() => connect({ connector })}
+        >
+          {address.slice(0, 4)}...
+          {address.slice(38, 42)}
         </button>
-        ) : (
-        <button className="btn" onClick={connectWallet}>
-            Connect
-        </button>
-        )}
+      ))}
     </div>
-  );
+  )
 }
 
 export default ConnectButton;

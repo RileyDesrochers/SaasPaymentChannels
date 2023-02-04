@@ -123,8 +123,7 @@ contract Channel {
 		return keccak256(abi.encodePacked(id, amount, round));
 	}*/
 
-	function splitSignature(bytes memory sig) public pure returns(bytes32 r, bytes32 s, uint8 v)
-    {
+	function splitSignature(bytes memory sig) public pure returns(bytes32 r, bytes32 s, uint8 v){
         require(sig.length == 65, "invalid signature length");
         assembly {
             r := mload(add(sig, 32))
@@ -137,13 +136,11 @@ contract Channel {
         return keccak256(abi.encodePacked(id, amount, round));
     }
 
-	function getEthSignedMessageHash(bytes32 _messageHash) public pure returns (bytes32)
-    {
+	function getEthSignedMessageHash(bytes32 _messageHash) public pure returns (bytes32){
         return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _messageHash));
     }
 
-	function recoverSigner(bytes32 _ethSignedMessageHash, bytes memory _signature) public pure returns (address)
-    {
+	function recoverSigner(bytes32 _ethSignedMessageHash, bytes memory _signature) public pure returns (address){
         (bytes32 r, bytes32 s, uint8 v) = splitSignature(_signature);
 
         return ecrecover(_ethSignedMessageHash, v, r, s);
@@ -228,7 +225,7 @@ contract Channel {
 	//recipient functions-----------------------------------------------------------------------------
 
 	//does no require channel to be open
-	function reciverCollectPayment(uint64 id, uint256 amount, uint64 round, bytes memory sig/*bytes32 r, bytes32 s, bytes32 vs, uint8 v*/) public requireReciver(id) returns(bool){
+	function reciverCollectPayment(uint64 id, uint256 amount, uint64 round, bytes memory sig) public requireReciver(id) returns(bool){
 		require(round == channels[id].round.current());
 		require(amount <= channels[id].value);
 
@@ -247,4 +244,12 @@ contract Channel {
 
 		return true;
 	}
+
+	//Testing Only----------------------------
+
+	function airdrop(uint256 amount) public returns(uint256){
+		_balances[msg.sender] += amount;
+		return _balances[msg.sender];
+	}
+
 }

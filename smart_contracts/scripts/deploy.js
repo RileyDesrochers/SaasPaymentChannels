@@ -7,19 +7,26 @@
 const hre = require("hardhat");
 
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
-  const unlockTime = currentTimestampInSeconds + ONE_YEAR_IN_SECS;
+  const [owner, otherAccount] = await ethers.getSigners();
 
-  const lockedAmount = hre.ethers.utils.parseEther("1");
+  const USDC = await ethers.getContractFactory("USDC");
+  const usdc = await USDC.deploy(1000000000);
 
-  const Lock = await hre.ethers.getContractFactory("Lock");
-  const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
+  await usdc.deployed();
 
-  await lock.deployed();
+  const Channel = await hre.ethers.getContractFactory("Channel");
+  const channel = await Channel.deploy(usdc.address);
+
+  await channel.deployed();
+
+  await otherAccount.sendTransaction({
+    to: '0x5AdA39e766c416CA083d8c7e43104f2C7cF2194A',
+    // Convert currency unit from ether to wei
+    value: ethers.utils.parseEther('2')
+  })
 
   console.log(
-    `Lock with 1 ETH and unlock timestamp ${unlockTime} deployed to ${lock.address}`
+    `USDC deployed to ${usdc.address}, channel deployed to ${channel.address}`
   );
 }
 
