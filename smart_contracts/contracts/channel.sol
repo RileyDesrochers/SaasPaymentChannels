@@ -31,6 +31,7 @@ contract Channel {
 
 	// channels is a array of channels with the index being the index ID
 	ChannelState[] public channels;
+	mapping(address => mapping(address => bool)) channelIDsByAddresses;
 	mapping(address => uint64[]) channelIDsBySender;
 	mapping(address => uint64[]) channelIDsByReciver;
 
@@ -157,8 +158,11 @@ contract Channel {
 	//user functions-----------------------------------------------------------------------------
 
 	function open(address to, uint256 value) public returns(uint64){
+		//channelIDsByAddresses
 		uint256 Balance = _balances[msg.sender];
 		require(value <= Balance, "you do not have the balance to fund channel");
+		require(!channelIDsByAddresses[msg.sender][to]);
+		
 		unchecked {
 			_balances[msg.sender] = Balance - value;
 		}
@@ -178,6 +182,7 @@ contract Channel {
 		channelIDsByReciver[to].push(id);
 
 		channelIDs.increment();
+		channelIDsByAddresses[msg.sender][to] = true;
 
 		emit Fund(id, value);
 

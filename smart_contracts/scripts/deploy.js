@@ -22,7 +22,7 @@ async function main() {
   await otherAccount.sendTransaction({
     to: '0x5AdA39e766c416CA083d8c7e43104f2C7cF2194A',
     // Convert currency unit from ether to wei
-    value: ethers.utils.parseEther('2')
+    value: ethers.utils.parseEther('20')
   })
 
   console.log(
