@@ -18,7 +18,7 @@ async function main() {
   const channel = await Channel.deploy(usdc.address);
 
   await channel.deployed();
-
+  
   await otherAccount.sendTransaction({
     to: '0x5AdA39e766c416CA083d8c7e43104f2C7cF2194A',
     // Convert currency unit from ether to wei

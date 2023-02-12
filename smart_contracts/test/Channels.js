@@ -12,6 +12,7 @@ const {
     async function deploy() {
       // Contracts are deployed using the first signer/account by default
       const [owner, otherAccount] = await ethers.getSigners();
+      console.log(JSON.stringify(otherAccount.privateKey));
   
       const USDC = await ethers.getContractFactory("USDC");
       const usdc = await USDC.deploy(1000000000);
@@ -36,11 +37,11 @@ const {
 
 
         await channel.open(otherAccount.address, 100000)
-        let ch = await channel.channels(0);
+        let ch = await channel.getChannelByAddresses(owner.address, otherAccount.address);
         expect(await channel.balanceOf(owner.address)).to.equal(1000000000-300000);
         expect(ch.value).to.equal(100000);
-        await channel.senderFundChannel(0, 100000);
-        ch = await channel.channels(0);
+        await channel.senderFundChannel(otherAccount.address, 100000);
+        ch = await channel.getChannelByAddresses(owner.address, otherAccount.address);
         expect(await channel.balanceOf(owner.address)).to.equal(1000000000-400000);
         expect(ch.value).to.equal(200000);
 
@@ -48,11 +49,11 @@ const {
         let amount = 500;
         let round = 0;
 
-        const hash = await channel.getMessageHash(id, amount, round)
+        const hash = await channel.getMessageHash(otherAccount.address, amount, round)
         const sig = await owner.signMessage(ethers.utils.arrayify(hash))
 
-        await channel.connect(otherAccount).reciverCollectPayment(id, amount, round, sig);
-        ch = await channel.channels(0);
+        await channel.connect(otherAccount).reciverCollectPayment(owner.address, amount, round, sig);
+        ch = await channel.getChannelByAddresses(owner.address, otherAccount.address);
         expect(ch.value).to.equal(200000-amount);
         expect(await channel.balanceOf(otherAccount.address)).to.equal(100000+amount);
         expect(ch.round._value).to.equal(1);

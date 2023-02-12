@@ -1,12 +1,13 @@
 import Head from "next/head";
 import styles from "../styles/Home.module.css";
 import Header from "../components/Header";
-import AccountManagment from "../components/AccountManagment";
-import SudokuBoard from "../components/SudokuBoard";
+import Body from "../components/Body";
 import { useAccount } from 'wagmi'
 
+
+
 export default function Home() {
-  const { address, isConnected } = useAccount();
+  const { isConnected } = useAccount()
 
   return (
     <div className={styles.container}>
@@ -17,14 +18,12 @@ export default function Home() {
       </Head>
       <Header />
       <div>
-        <SudokuBoard />
         {isConnected ? (
-          <AccountManagment />
+          <Body/>
         ) : (
-          <div>Please connect to a Wallet</div>
+          <p>Please connect to a Wallet</p>
         )}
       </div>
     </div>
   );
 }
-//

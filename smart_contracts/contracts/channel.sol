@@ -14,15 +14,13 @@ contract Channel {
 	mapping(address => uint256) private _balances;
 	IERC20 public token;
 
-	Counters.Counter channelIDs;
+	//Counters.Counter channelIDs;
 	uint64 lockPeriod = 1 days;
 	uint8 public decimals = 18;
 
 	enum State {NONEXISTANT,OPEN,LOCKED}
 
 	struct ChannelState {
-		address from;
-		address to;
 		uint256 value;
 		State state;
 		Counters.Counter round;
@@ -30,15 +28,15 @@ contract Channel {
 	}
 
 	// channels is a array of channels with the index being the index ID
-	ChannelState[] public channels;
-	mapping(address => mapping(address => bool)) channelIDsByAddresses;
-	mapping(address => uint64[]) channelIDsBySender;
-	mapping(address => uint64[]) channelIDsByReciver;
+	//ChannelState[] public channels;
+	mapping(address => mapping(address => ChannelState)) channels; //sender => reciver => channel
+	mapping(address => address[]) channelReciversBySender;
+	mapping(address => address[]) channelSendersByReciver;
 
 	//event Open(uint64 indexed ID, uint256 value);
-	event Fund(uint64 indexed ID, uint256 amount);
-	event Lock(uint64 indexed ID, uint64 time);
-	event Defund(uint64 indexed ID, address user, uint256 amount);
+	event Fund(address indexed from, address indexed to, uint256 amount);
+	event Lock(address indexed from, address indexed to, uint64 time);
+	event Defund(address indexed from, address indexed to, uint256 amount);
 	event Transfer(address from, address to, uint256 amount);
 	//FIX add more events
 
@@ -48,25 +46,25 @@ contract Channel {
 
 	//modifiers--------------------------------------------------------------------------
 
-	modifier requireOpen(uint64 id){
-		require(channels[id].state == State.OPEN, "Channel is not open");
+	modifier requireOpen(address sender, address reciver){
+		require(channels[sender][reciver].state == State.OPEN, "Channel is not open");
 		_;
 	}
 
-	modifier requireLocked(uint64 id){
-		require(channels[id].state == State.LOCKED, "Channel is not locked");
+	modifier requireLocked(address sender, address reciver){
+		require(channels[sender][reciver].state == State.LOCKED, "Channel is not locked");
 		_;
 	}
 
-	modifier requireSender(uint64 id){
+	/*modifier requireSender(address sender, address reciver){
 		require(channels[id].from == msg.sender, "You are not the channel sender");
 		_;
 	}
 
-	modifier requireReciver(uint64 id){
+	modifier requireReciver(address sender, address reciver){
 		require(channels[id].to == msg.sender, "You are not the channel recipient");
 		_;
-	}
+	}*/
 
 	//deposit and withdrawal functions----------------------------------------------------------------
 
@@ -114,11 +112,11 @@ contract Channel {
         return true;
     }
 
+	//helpers adn getters------------------------------------------------------------------------
+
 	function balanceOf(address account) public view returns (uint256) {
         return _balances[account];
     }
-
-	//helpers adn getters------------------------------------------------------------------------
 
     /*function hashState(uint64 id, uint256 amount, uint64 round) internal  returns (bytes32) {
 		return keccak256(abi.encodePacked(id, amount, round));
@@ -133,8 +131,8 @@ contract Channel {
         }
     }
 
-	function getMessageHash(uint64 id, uint256 amount, uint64 round) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(id, amount, round));
+	function getMessageHash(address reciver, uint256 amount, uint64 round) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(reciver, amount, round));
     }
 
 	function getEthSignedMessageHash(bytes32 _messageHash) public pure returns (bytes32){
@@ -147,107 +145,95 @@ contract Channel {
         return ecrecover(_ethSignedMessageHash, v, r, s);
     }
 
-	function getChannelIDsBySender(address sender) public view returns(uint64[] memory){
-		return channelIDsBySender[sender];
+	function getChannelReciversBySender(address sender) public view returns(address[] memory){
+		return channelReciversBySender[sender];
 	}
 
-	function getChannelIDsByReciver(address reciver) public view returns(uint64[] memory){
-		return channelIDsByReciver[reciver];
+	function getChannelSendersByReciver(address reciver) public view returns(address[] memory){
+		return channelSendersByReciver[reciver];
 	}
+
+	function getChannelByAddresses(address from, address to) public view returns (ChannelState memory) {
+        return channels[from][to];
+    }
 
 	//user functions-----------------------------------------------------------------------------
 
-	function open(address to, uint256 value) public returns(uint64){
-		//channelIDsByAddresses
+	function open(address to, uint256 value) public {
 		uint256 Balance = _balances[msg.sender];
 		require(value <= Balance, "you do not have the balance to fund channel");
-		require(!channelIDsByAddresses[msg.sender][to]);
+		require(channels[msg.sender][to].state == State.NONEXISTANT, "channel already opened use senderFundChannel() instead");
 		
 		unchecked {
 			_balances[msg.sender] = Balance - value;
 		}
 
-		uint64 id = uint64(channelIDs.current());
+		//uint64 id = uint64(channelIDs.current());
 
 		Counters.Counter memory round;
 
-		channels.push(ChannelState(msg.sender, to, value, State.OPEN, round, 0));
+		channels[msg.sender][to] = ChannelState(value, State.OPEN, round, 0);
 
-		/*channels[id].from = msg.sender;
-		channels[id].to = to;
-		channels[id].value = value;
-		channels[id].state = State.OPEN;*/
+		channelReciversBySender[msg.sender].push(to);
+		channelSendersByReciver[to].push(msg.sender);
 
-		channelIDsBySender[msg.sender].push(id);
-		channelIDsByReciver[to].push(id);
+		//channelIDs.increment();
+		//channelIDsByAddresses[msg.sender][to] = true;
 
-		channelIDs.increment();
-		channelIDsByAddresses[msg.sender][to] = true;
-
-		emit Fund(id, value);
-
-		return id;
+		emit Fund(msg.sender, to, value);
 	}
 
-	function senderFundChannel(uint64 id, uint256 amount) public requireOpen(id) requireSender(id) returns(bool){
+	function senderFundChannel(address to, uint256 amount) public requireOpen(msg.sender, to){
 		uint256 Balance = _balances[msg.sender];
 		require(amount <= Balance, "you do not have the balance to fund channel");
 		unchecked {
 			_balances[msg.sender] = Balance - amount;
-			channels[id].value += amount;
+			channels[msg.sender][to].value += amount;
 		}
 
-		emit Fund(id, amount);
-
-		return true;
+		emit Fund(msg.sender, to, amount);
 	}
 
-	function senderLock(uint64 id) public requireOpen(id) requireSender(id) returns(uint64){
-		channels[id].state = State.LOCKED;
+	function senderLock(address to) public requireOpen(msg.sender, to){
+		channels[msg.sender][to].state = State.LOCKED;
 		uint64 time = uint64(block.timestamp);
-		channels[id].lockTime = time;
+		channels[msg.sender][to].lockTime = time;
 
-		emit Lock(id, time);
-
-		return time;
+		emit Lock(msg.sender, to, time);
 	}//FIX write sender Unlock function
 
-	function senderWithdrawal(uint64 id) public requireLocked(id) requireSender(id) returns(uint256){
-		uint64 lockTime = channels[id].lockTime;
+	function senderWithdrawal(address to) public requireLocked(msg.sender, to){
+		uint64 lockTime = channels[msg.sender][to].lockTime;
 		require(block.timestamp < lockTime + lockPeriod);
 
-		uint256 amount = channels[id].value;
-		channels[id].value = 0;
+		uint256 amount = channels[msg.sender][to].value;
+		channels[msg.sender][to].value = 0;
 		_balances[msg.sender] += amount;
 
-		channels[id].state = State.OPEN;//reopen channel
+		channels[msg.sender][to].state = State.OPEN;//reopen channel
 
-		emit Defund(id, channels[id].from, amount);
-
-		return amount;
+		emit Defund(msg.sender, to, amount);
 	}
 
 	//recipient functions-----------------------------------------------------------------------------
 
 	//does no require channel to be open
-	function reciverCollectPayment(uint64 id, uint256 amount, uint64 round, bytes memory sig) public requireReciver(id) returns(bool){
-		require(round == channels[id].round.current());
-		require(amount <= channels[id].value);
+	function reciverCollectPayment(address from, uint256 amount, uint64 round, bytes memory sig) public {
+		require(round == channels[from][msg.sender].round.current());
+		require(amount <= channels[from][msg.sender].value);
 
-		address sender = channels[id].from;
-		bytes32 messageHash = getMessageHash(id, amount, round);
+		//address sender = channels[id].from;
+		bytes32 messageHash = getMessageHash(msg.sender, amount, round);
 		bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
 
-		require(recoverSigner(ethSignedMessageHash, sig) == sender);
+		require(recoverSigner(ethSignedMessageHash, sig) == from);
 		//require(ECDSA.recover(hash, sig) == sender, "invalid signature");
 		
-		channels[id].value -= amount;
-		channels[id].round.increment();
-		_balances[channels[id].to] += amount;
+		channels[from][msg.sender].value -= amount;
+		channels[from][msg.sender].round.increment();
+		_balances[msg.sender] += amount;
 
-		emit Defund(id, channels[id].to, amount);
-
-		return true;
+		emit Defund(from, msg.sender, amount);
 	}
 
 	//Testing Only----------------------------

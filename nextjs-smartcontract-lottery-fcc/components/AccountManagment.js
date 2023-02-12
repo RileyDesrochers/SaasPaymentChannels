@@ -4,11 +4,24 @@ import { useAccount, useContractRead, useContractWrite, usePrepareContractWrite 
 const paymentRecipient = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
 const contract = require('./Channel.json');
 
-export default function AccountManagment() {
+export default function AccountManagment(props) {
   const [bal, setBal] = useState('0')
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useAccount()
 
-  const { refetch } = useContractRead({
+  const { refetch: getChannelByAddressesRefetch } = useContractRead({
+    address: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+    abi: contract.abi,
+    functionName: 'getChannelByAddresses',
+    args: isConnected ? [address, paymentRecipient] : [ethers.constants.AddressZero, paymentRecipient],
+    chainId: 31337,
+    onSuccess(data) {
+      if(data.state === 1){
+        props.handleOpen(data)
+      }
+    }
+  });
+
+  const { refetch: balanceOfRefetch } = useContractRead({
     address: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
     abi: contract.abi,
     functionName: 'balanceOf',
@@ -30,7 +43,8 @@ export default function AccountManagment() {
   const { write: openWrite } = useContractWrite({
     ...openConfig,
     onSuccess(_) {
-      refetch();
+      balanceOfRefetch();
+      getChannelByAddressesRefetch();
     },
   });
 
@@ -44,7 +58,7 @@ export default function AccountManagment() {
   const { write: airdropWrite } = useContractWrite({
       ...airdropConfig,
       onSuccess(_) {
-        refetch();
+        balanceOfRefetch();
       },
   });
 
