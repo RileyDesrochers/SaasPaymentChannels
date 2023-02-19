@@ -9,16 +9,6 @@ const contract = require('./Channel.json');
 const wasm = require('./sudoku/pkg/sudoku.js');
 require('dotenv').config()
 
-
-
-//console.log(wasm.sol(s));
-//s[0][2] = 5
-//console.log(s);
-
-
-
-//const myAddress = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";//MNEMONIC
-//const provider = 'http://localhost:8545';//process.env.PRIVATE_KEY
 const provider = new ethers.providers.JsonRpcProvider();
 const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 let channelContract = new ethers.Contract(contractAddress, contract.abi, provider);
@@ -26,16 +16,24 @@ let channelContract = new ethers.Contract(contractAddress, contract.abi, provide
 let cost = 100;
 
 let channels = {}
-/*class PaymentChannel {
-  constructor(_channelID, _channelBalance, _userID, _publicKey){
-      this.channelID = _channelID;
-      this.channelBalance = _channelBalance;
-      this.balanceUsed = 0;
-      this.userID = _userID;
-      this.publicKey = _publicKey;
-      this.transactions = [];
+
+async function validSig(address, used, round, sig){
+  const hash = await channelContract.getMessageHash(signer.address, used, round)
+  //ethSignedMessageHash = getEthSignedMessageHash(messageHash);
+  const sigMsgHash = await channelContract.getEthSignedMessageHash(hash)
+  const from = await channelContract.recoverSigner(sigMsgHash, sig)
+  if(from === address){
+    return true;
+  }else{
+    return false;
   }
+  //await channelContract.connect(signer).reciverCollectPayment(address, channels[address].used, channels[address].round, sig);  
+}
+
+/*async function close(address, sig){
+  await channelContract.connect(signer).reciverCollectPayment(address, channels[address].used, channels[address].round, sig);  
 }*/
+
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -45,7 +43,7 @@ app.use(function(req, res, next) {
     next();
   });
 
-app.get("/ping", async function(req, res) {
+app.get("/ping", async function(_, res) {
   res.send({
     message: 'online',
   });
@@ -57,73 +55,102 @@ app.post("/test", async function(req, res) {
   res.send({
     message: 'msg received',
   });
-  /*if(await verifyMessage(msg, addr, req.body.ETHSig)){
-    //key = msg.publicKey;
-
-    res.send({
-      message: 'channel opened',
-    });
-  }else{
-    res.send({
-      message: 'invalid signature',
-    });
-  }*/
-  
 });
 
 app.post("/connect", async function(req, res) {
   var msg = req.body;
   let state = await channelContract.getChannelByAddresses(msg.address, signer.address);
-  if(state.state === 1){
-    let channel = {
-      used: 0,
-      max: state.value,
-      round: state.round[0],
-      lastMsg: {}
-    }
-    channels[msg.address] = channel;
-    console.log(channels[msg.address]);
-    res.send({
-      message: 'channel open',
-    });
-  }else{
+  if(state.state !== 1){
     res.send({
       message: 'wrong channel state',
     });
+    return;
   }
+
+
+  let channel = {
+    used: 0,
+    max: state.value,
+    round: state.round[0],
+    lastMsg: {}
+  };
+  try{
+    channel = {
+      used: channels[msg.address].used,
+      max: channels[msg.address].max,
+      round: channels[msg.address].round,
+      lastMsg: channels[msg.address].lastMsg
+    }
+  }catch{
+    channels[msg.address] = channel;
+    console.log(channel);
+    res.send({
+      message: 'channel open',
+    });
+    return;
+  }
+
+  if(state.round[0] !== channel.round){
+    channel.used = 0;
+    channel.max = state.value;
+    channel.round = state.round[0];
+  }else if(state.value !== channel.max){
+    if(state.value < channel.max){
+      throw "invalid state value change"
+    }
+    channel.max = state.value;
+  }else{//no change 
+    res.send({
+      message: 'channel open',
+    });
+    return;
+  }
+
+  channels[msg.address] = channel;
+  console.log(channel);
+  res.send({
+    message: 'channel open',
+  });
 });
 
 app.post("/solve", async function(req, res) {
   var msg = req.body;
   msg.round = ethers.BigNumber.from(msg.round)
-  msg.puzzle = msg.puzzle.map(x => new Uint8Array(x))
-  console.log(msg);
   let sender = msg.paymentSender;
-  if(msg.total>=(channels[sender].used+cost) && msg.round.eq(channels[sender].round)){//make sure not pass channel limit
-    channels[sender].used = msg.total;
-    lastMsg = msg;
-    console.log(wasm.sol(msg.puzzle));
-    res.send({
-      message: 'Done!',
-    });
+  let channel = channels[sender];
+  console.log(channel);
+  if(msg.total >= (channels[sender].used+cost) && msg.total <= channels[sender].max && msg.round.eq(channels[sender].round)){//make sure not pass channel limit
+    if(await validSig(sender, msg.total, msg.round, msg.signature)){
+      channels[sender].used = msg.total;
+      channels[sender].lastMsg = msg;
+      let puz = msg.puzzle.map(x => new Uint8Array(x))
+      puz = wasm.sol(puz);
+      puz = puz.map(x => Array.from(x))
+      res.send({
+        message: puz,
+      });
+      return;
+    }else{
+      res.send({
+        message: "invalid signature",
+      });
+      return;
+    }
   }else{
-    //console.log(msg.total>=(channels[sender].used+cost), msg.round.eq(channels[sender].round));
+    let reason;
+    if(msg.total < (channels[sender].used+cost)){
+      reason = "payment to enough"
+    }else if(msg.total > channels[sender].max){
+      reason = "exceds channel limit"
+    }else if(!msg.round.eq(channels[sender].round)){
+      reason = "channel needs to be updated"
+    }else{
+      throw "unknown error"
+    }
     res.send({
-      message: 'ow no!',
-    });//ethers.BigNumber.from("0")
+      message: reason,
+    });
   }
-  /*if(await verifyMessage(msg, addr, req.body.ETHSig)){
-    //key = msg.publicKey;
-
-    res.send({
-      message: 'channel opened',
-    });
-  }else{
-    res.send({
-      message: 'invalid signature',
-    });
-  }*/
-  
 });
 
 let port = process.env.PORT;

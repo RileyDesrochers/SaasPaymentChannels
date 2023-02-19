@@ -12,7 +12,6 @@ const {
     async function deploy() {
       // Contracts are deployed using the first signer/account by default
       const [owner, otherAccount] = await ethers.getSigners();
-      console.log(JSON.stringify(otherAccount.privateKey));
   
       const USDC = await ethers.getContractFactory("USDC");
       const usdc = await USDC.deploy(1000000000);

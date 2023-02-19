@@ -11,14 +11,7 @@ export default function Body() {
     
     const { address, isConnected } = useAccount()
 
-    //const provider = useProvider()
-    const [bal, setBal] = useState('0')
-    const [max, setMax] = useState(0)
-    const [used, setUsed] = useState(0)
-    const [round, setRound] = useState(ethers.BigNumber.from("0"))
-    const [state, setState] = useState(0)
-    const [msg, setMsg] = useState(0)
-    const [sudoku, setSudoku] = useState([
+    const blankBoard = [
         [0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -28,7 +21,15 @@ export default function Body() {
         [0, 0, 0, 0, 0, 0, 0, 0, 0], 
         [0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0]
-    ]);
+    ];
+    //const provider = useProvider()
+    const [bal, setBal] = useState('0')
+    const [max, setMax] = useState(0)
+    const [used, setUsed] = useState(0)
+    const [round, setRound] = useState(ethers.BigNumber.from("0"))
+    const [state, setState] = useState(0)
+    const [msg, setMsg] = useState(0)
+    const [sudoku, setSudoku] = useState(blankBoard);
     //const [msgSig, setMsgSig] = useState(0)
     //let channelContract = new ethers.Contract(contractAddress, contract.abi, provider);
     let cost = 100;
@@ -119,9 +120,8 @@ export default function Body() {
     //sign message-----------------
 
     const { signMessage } = useSignMessage({
-        message: msg,
+        message: ethers.utils.arrayify(msg),
         onSuccess(data) {
-            console.log(sudoku[0])
             axios.post(url+'solve', {
                 paymentSender: address,
                 //paymentRecipient: paymentRecipient,
@@ -130,8 +130,9 @@ export default function Body() {
                 puzzle: sudoku,
                 signature: data,
             }).then(function (response) {
-                setUsed(used+cost)
-                console.log(response.data);
+                setSudoku(response.data.message);
+                //setUsed(used+cost)
+                //console.log(response.data.message);
             }).catch(function (error) {
                 console.log(error);
             });
@@ -193,6 +194,9 @@ export default function Body() {
             <button className="SolveButton" onClick={() => signMessage()}>
                 Solve
             </button>
+            <button className="ClearButton" onClick={() => setSudoku(blankBoard)}>
+                Clear
+            </button>
             <div className="p-5">
                 <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded ml-auto" disabled={true}>
                     Deposit stable coins
@@ -207,7 +211,7 @@ export default function Body() {
                     Open payment channel
                 </button>
                 <p className="py-4 px-4 font-bold text-3xl">
-                    <b>your balance: </b>{isConnected ? bal : '?'}
+                    <b>your balance: </b>{bal}
                 </p>
             </div>
         </div>

@@ -1,0 +1,27 @@
+front end interface
+    sudoku board 
+    solve button
+    clear button
+
+    deposit button
+    withdrawal button
+    airdrop button
+    connect channel button
+    close channel button
+
+    connect channel button
+        check for [channel_state, [(request, cost)] with host 
+        check channel on-chain state 
+            create onchain channel then connect to host
+            ?fix error?
+        ?set up listener for changes
+
+back end interface
+    user connect
+    user disconnect
+    channel request
+
+request
+    uint request_type => 0 is custom
+    string request_info
+    
