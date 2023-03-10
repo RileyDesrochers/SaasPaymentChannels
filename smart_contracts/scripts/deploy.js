@@ -13,6 +13,7 @@ async function main() {
   const usdc = await USDC.deploy(1000000000);
 
   await usdc.deployed();
+  await usdc.transfer('0x5AdA39e766c416CA083d8c7e43104f2C7cF2194A', 1000000000)
 
   const Channel = await hre.ethers.getContractFactory("Channel");
   const channel = await Channel.deploy(usdc.address);

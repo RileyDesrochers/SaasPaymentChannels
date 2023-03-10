@@ -56,16 +56,6 @@ contract Channel {
 		_;
 	}
 
-	/*modifier requireSender(address sender, address reciver){
-		require(channels[id].from == msg.sender, "You are not the channel sender");
-		_;
-	}
-
-	modifier requireReciver(address sender, address reciver){
-		require(channels[id].to == msg.sender, "You are not the channel recipient");
-		_;
-	}*/
-
 	//deposit and withdrawal functions----------------------------------------------------------------
 
 	function deposit(uint256 amount) public returns (bool){
@@ -160,27 +150,28 @@ contract Channel {
 	//user functions-----------------------------------------------------------------------------
 
 	function open(address to, uint256 value) public {
-		uint256 Balance = _balances[msg.sender];
+		address from = msg.sender;
+		uint256 Balance = _balances[from];
 		require(value <= Balance, "you do not have the balance to fund channel");
-		require(channels[msg.sender][to].state == State.NONEXISTANT, "channel already opened use senderFundChannel() instead");
+		require(channels[from][to].state == State.NONEXISTANT, "channel already opened use senderFundChannel() instead");
 		
 		unchecked {
-			_balances[msg.sender] = Balance - value;
+			_balances[from] = Balance - value;
 		}
 
 		//uint64 id = uint64(channelIDs.current());
 
 		Counters.Counter memory round;
 
-		channels[msg.sender][to] = ChannelState(value, State.OPEN, round, 0);
+		channels[from][to] = ChannelState(value, State.OPEN, round, 0);
 
-		channelReciversBySender[msg.sender].push(to);
-		channelSendersByReciver[to].push(msg.sender);
+		channelReciversBySender[from].push(to);
+		channelSendersByReciver[to].push(from);
 
 		//channelIDs.increment();
 		//channelIDsByAddresses[msg.sender][to] = true;
 
-		emit Fund(msg.sender, to, value);
+		emit Fund(from, to, value);
 	}
 
 	function senderFundChannel(address to, uint256 amount) public requireOpen(msg.sender, to){
