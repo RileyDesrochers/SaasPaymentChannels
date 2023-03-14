@@ -170,16 +170,39 @@ contract Channel is EIP712Decoder {
 	//user functions-----------------------------------------------------------------------------
 
 	function open(address to, uint256 value) public {
-		uint256 Balance = _balances[msg.sender];
+		address from = msg.sender;
+		uint256 Balance = _balances[from];
 		require(value <= Balance, "you do not have the balance to fund channel");
+<<<<<<< HEAD
 		//require(channels[msg.sender][to].state == State.NONEXISTANT, "channel already opened use senderFundChannel() instead");
 		
 		_balances[msg.sender] = Balance - value;
+=======
+		require(channels[from][to].state == State.NONEXISTANT, "channel already opened use senderFundChannel() instead");
+		
+		unchecked {
+			_balances[from] = Balance - value;
+		}
+
+		//uint64 id = uint64(channelIDs.current());
+
+		Counters.Counter memory round;
+
+		channels[from][to] = ChannelState(value, State.OPEN, round, 0);
+
+		channelReciversBySender[from].push(to);
+		channelSendersByReciver[to].push(from);
+>>>>>>> 2014c9603e839f6746893677247d603797dc0b3d
 
 		if(channels[msg.sender][to].state == State.NONEXISTANT){
 			Counters.Counter memory round;
 
+<<<<<<< HEAD
 			channels[msg.sender][to] = ChannelState(value, State.OPEN, round, 0);
+=======
+		emit Fund(from, to, value);
+	}
+>>>>>>> 2014c9603e839f6746893677247d603797dc0b3d
 
 			channelReciversBySender[msg.sender].push(to);
 			channelSendersByReciver[to].push(msg.sender);
