@@ -15,7 +15,7 @@ async function main() {
   await usdc.deployed();
 
   const Channel = await hre.ethers.getContractFactory("Channel");
-  const channel = await Channel.deploy(usdc.address);
+  const channel = await Channel.deploy("Atmosphere", usdc.address);
 
   await channel.deployed();
   

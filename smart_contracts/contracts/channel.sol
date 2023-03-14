@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
-// github.com/MariusVanDerWijden/go-pay
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-//import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+
+import "./YourTypesFile.sol";
 import "hardhat/console.sol";
 
-contract Channel {
+contract Channel is EIP712Decoder {
 	using Counters for Counters.Counter;
     //using ECDSA for bytes32;
 
@@ -40,8 +40,11 @@ contract Channel {
 	event Transfer(address from, address to, uint256 amount);
 	//FIX add more events
 
-	constructor(address _token) {
+	bytes32 public immutable domainHash;
+	constructor(string memory name, address _token){
         token = IERC20(_token);
+		//_setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
+		domainHash = getEIP712DomainHash(name,"4",block.chainid,address(this));
     }
 
 	//modifiers--------------------------------------------------------------------------
@@ -55,16 +58,6 @@ contract Channel {
 		require(channels[sender][reciver].state == State.LOCKED, "Channel is not locked");
 		_;
 	}
-
-	/*modifier requireSender(address sender, address reciver){
-		require(channels[id].from == msg.sender, "You are not the channel sender");
-		_;
-	}
-
-	modifier requireReciver(address sender, address reciver){
-		require(channels[id].to == msg.sender, "You are not the channel recipient");
-		_;
-	}*/
 
 	//deposit and withdrawal functions----------------------------------------------------------------
 
@@ -118,32 +111,49 @@ contract Channel {
         return _balances[account];
     }
 
-    /*function hashState(uint64 id, uint256 amount, uint64 round) internal  returns (bytes32) {
-		return keccak256(abi.encodePacked(id, amount, round));
-	}*/
-
-	function splitSignature(bytes memory sig) public pure returns(bytes32 r, bytes32 s, uint8 v){
-        require(sig.length == 65, "invalid signature length");
-        assembly {
-            r := mload(add(sig, 32))
-            s := mload(add(sig, 64))
-            v := byte(0, mload(add(sig, 96)))
-        }
+	function verify(address sender, address reciver, uint256 amount, uint256 round, bytes memory signature) public view returns (bool){
+		//return _verify(sender, _hash(reciver, amount, round), signature);
+		address out = verifySignedTransaction(SignedTransaction(Transaction(reciver, amount, round), signature));
+		return (sender == out);
     }
 
-	function getMessageHash(address reciver, uint256 amount, uint64 round) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(reciver, amount, round));
-    }
+	function getEIP712DomainHash(string memory contractName, string memory version, uint256 chainId, address verifyingContract) public pure returns (bytes32) {
+		bytes memory encoded = abi.encode(
+			EIP712DOMAIN_TYPEHASH,
+			keccak256(bytes(contractName)),
+			keccak256(bytes(version)),
+			chainId,
+			verifyingContract
+		);
+		return keccak256(encoded);
+  	}
 
-	function getEthSignedMessageHash(bytes32 _messageHash) public pure returns (bytes32){
-        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _messageHash));
-    }
+	function verifySignedTransaction(SignedTransaction memory signedTransaction) public view returns (address) {
 
-	function recoverSigner(bytes32 _ethSignedMessageHash, bytes memory _signature) public pure returns (address){
-        (bytes32 r, bytes32 s, uint8 v) = splitSignature(_signature);
+		// Break out the struct that was signed:
+		Transaction memory transaction = signedTransaction.transaction;
 
-        return ecrecover(_ethSignedMessageHash, v, r, s);
-    }
+		// Get the top-level hash of that struct, as defined just below:
+		bytes32 sigHash = getTransactionTypedDataHash(transaction);
+
+		// The `recover` method comes from the codegen, and will be able to recover from this:
+		address recoveredSignatureSigner = recover(sigHash, signedTransaction.signature);
+		return recoveredSignatureSigner;
+  	}
+
+	function getTransactionTypedDataHash(Transaction memory transaction) public view returns (bytes32) {
+		bytes32 digest = keccak256(abi.encodePacked(
+			"\x19\x01",
+
+			// The domainHash is derived from your contract name and address above:
+			domainHash,
+
+			// This last part is calling one of the generated methods.
+			// It must match the name of the struct that is the `primaryType` of this signature.
+			GET_TRANSACTION_PACKETHASH(transaction)
+		));
+		return digest;
+  	}
 
 	function getChannelReciversBySender(address sender) public view returns(address[] memory){
 		return channelReciversBySender[sender];
@@ -162,36 +172,21 @@ contract Channel {
 	function open(address to, uint256 value) public {
 		uint256 Balance = _balances[msg.sender];
 		require(value <= Balance, "you do not have the balance to fund channel");
-		require(channels[msg.sender][to].state == State.NONEXISTANT, "channel already opened use senderFundChannel() instead");
+		//require(channels[msg.sender][to].state == State.NONEXISTANT, "channel already opened use senderFundChannel() instead");
 		
-		unchecked {
-			_balances[msg.sender] = Balance - value;
+		_balances[msg.sender] = Balance - value;
+
+		if(channels[msg.sender][to].state == State.NONEXISTANT){
+			Counters.Counter memory round;
+
+			channels[msg.sender][to] = ChannelState(value, State.OPEN, round, 0);
+
+			channelReciversBySender[msg.sender].push(to);
+			channelSendersByReciver[to].push(msg.sender);
+		}else{
+			channels[msg.sender][to].value += value;
 		}
-
-		//uint64 id = uint64(channelIDs.current());
-
-		Counters.Counter memory round;
-
-		channels[msg.sender][to] = ChannelState(value, State.OPEN, round, 0);
-
-		channelReciversBySender[msg.sender].push(to);
-		channelSendersByReciver[to].push(msg.sender);
-
-		//channelIDs.increment();
-		//channelIDsByAddresses[msg.sender][to] = true;
-
 		emit Fund(msg.sender, to, value);
-	}
-
-	function senderFundChannel(address to, uint256 amount) public requireOpen(msg.sender, to){
-		uint256 Balance = _balances[msg.sender];
-		require(amount <= Balance, "you do not have the balance to fund channel");
-		unchecked {
-			_balances[msg.sender] = Balance - amount;
-			channels[msg.sender][to].value += amount;
-		}
-
-		emit Fund(msg.sender, to, amount);
 	}
 
 	function senderLock(address to) public requireOpen(msg.sender, to){
@@ -218,16 +213,14 @@ contract Channel {
 	//recipient functions-----------------------------------------------------------------------------
 
 	//does no require channel to be open
-	function reciverCollectPayment(address from, uint256 amount, uint64 round, bytes memory sig) public {
+	function reciverCollectPayment(address from, address to, uint256 amount, uint256 round, bytes memory sig) public {
 		require(round == channels[from][msg.sender].round.current());
 		require(amount <= channels[from][msg.sender].value);
-
+		require(verify(from, to, amount, round, sig));
 		//address sender = channels[id].from;
-		bytes32 messageHash = getMessageHash(msg.sender, amount, round);
-		bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
+		//bytes32 messageHash = getMessageHash(msg.sender, amount, round);
+		//bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
 
-		require(recoverSigner(ethSignedMessageHash, sig) == from);
-		//require(ECDSA.recover(hash, sig) == sender, "invalid signature");
 		
 		channels[from][msg.sender].value -= amount;
 		channels[from][msg.sender].round.increment();

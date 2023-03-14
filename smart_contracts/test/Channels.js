@@ -39,7 +39,7 @@ const {
         let ch = await channel.getChannelByAddresses(owner.address, otherAccount.address);
         expect(await channel.balanceOf(owner.address)).to.equal(1000000000-300000);
         expect(ch.value).to.equal(100000);
-        await channel.senderFundChannel(otherAccount.address, 100000);
+        await channel.open(otherAccount.address, 100000);
         ch = await channel.getChannelByAddresses(owner.address, otherAccount.address);
         expect(await channel.balanceOf(owner.address)).to.equal(1000000000-400000);
         expect(ch.value).to.equal(200000);
