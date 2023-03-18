@@ -4,10 +4,20 @@ const fs = require('fs');
 const util = require('util');
 const app = express();
 const ethers = require('ethers');
-const contractAddress = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
+const contractAddress = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
 const contract = require('./Channel.json');
 const wasm = require('./sudoku/pkg/sudoku.js');
+//const { Transaction } = require("zksync");
 require('dotenv').config()
+
+function sanitiseChannel(ch){//toString
+  return {
+    value: ch.value.toString(),
+    state: ch.state,
+    round: ch.round._value.toString(),
+    lockTime: ch.lockTime.toString()
+  }
+}
 
 const provider = new ethers.providers.JsonRpcProvider();
 const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
@@ -17,7 +27,12 @@ let cost = 100;
 
 let channels = {}
 
-async function validSig(address, used, round, sig){
+async function checkSig(sender, transaction, sig){
+  return (await channelContract.verify(sender, transaction.to, transaction.total, transaction.round, sig));
+  //console.log(s2);
+}
+
+/*async function validSig(address, used, round, sig){
   const hash = await channelContract.getMessageHash(signer.address, used, round)
   //ethSignedMessageHash = getEthSignedMessageHash(messageHash);
   const sigMsgHash = await channelContract.getEthSignedMessageHash(hash)
@@ -28,7 +43,7 @@ async function validSig(address, used, round, sig){
     return false;
   }
   //await channelContract.connect(signer).reciverCollectPayment(address, channels[address].used, channels[address].round, sig);  
-}
+}*/
 
 /*async function close(address, sig){
   await channelContract.connect(signer).reciverCollectPayment(address, channels[address].used, channels[address].round, sig);  
@@ -43,38 +58,54 @@ app.use(function(req, res, next) {
     next();
   });
 
-app.get("/ping", async function(_, res) {
+/*app.get("/ping", async function(_, res) {
   res.send({
     message: 'online',
   });
-});
+});*/
 
-app.post("/test", async function(req, res) {
+/*app.post("/test", async function(req, res) {
   var msg = req.body;
   console.log(msg);
   res.send({
     message: 'msg received',
   });
-});
+});*/
 
 app.post("/connect", async function(req, res) {
   var msg = req.body;
-  let state = await channelContract.getChannelByAddresses(msg.address, signer.address);
+  let state = sanitiseChannel(await channelContract.getChannelByAddresses(msg.address, signer.address));
   if(state.state !== 1){
     res.send({
-      message: 'wrong channel state',
+      message: 'open channel first',
     });
     return;
   }
 
-
-  let channel = {
-    used: 0,
-    max: state.value,
-    round: state.round[0],
-    lastMsg: {}
-  };
-  try{
+  let channel;
+  if(channels.hasOwnProperty(msg.address)){
+    channel = channels[msg.address];
+    if(channel.round !== state.round){
+      channel = {
+        used: 0,
+        max: state.value,
+        round: state.round,
+        lastMsg: {}
+      };
+    }else if(channel.max !== state.value){
+      channel.max = state.value;
+    }
+  }else{
+    channel = {
+      used: 0,
+      max: state.value,
+      round: state.round,
+      lastMsg: {}
+    };
+  }
+  channels[msg.address] = channel;
+  
+  /*try{
     channel = {
       used: channels[msg.address].used,
       max: channels[msg.address].max,
@@ -104,39 +135,52 @@ app.post("/connect", async function(req, res) {
       message: 'channel open',
     });
     return;
-  }
-
-  channels[msg.address] = channel;
+  }*/
   console.log(channel);
   res.send({
     message: 'channel open',
+    channel: channel
   });
 });
 
 app.post("/solve", async function(req, res) {
   var msg = req.body;
-  msg.round = ethers.BigNumber.from(msg.round)
+  //let round = ethers.BigNumber.from(msg.transaction.round)
   let sender = msg.paymentSender;
+  if(!channels.hasOwnProperty(sender)){
+    res.send({
+      message: "connect first",
+    });
+    return;
+  }
+  
   let channel = channels[sender];
-  console.log(channel);
-  if(msg.total >= (channels[sender].used+cost) && msg.total <= channels[sender].max && msg.round.eq(channels[sender].round)){//make sure not pass channel limit
-    if(await validSig(sender, msg.total, msg.round, msg.signature)){
-      channels[sender].used = msg.total;
-      channels[sender].lastMsg = msg;
-      let puz = msg.puzzle.map(x => new Uint8Array(x))
-      puz = wasm.sol(puz);
-      puz = puz.map(x => Array.from(x))
-      res.send({
-        message: puz,
-      });
-      return;
-    }else{
-      res.send({
-        message: "invalid signature",
-      });
-      return;
-    }
+  let transaction = {
+    to: signer.address,
+    total: msg.total,
+    round: channel.round
+  }
+  
+  //console.log(channel);
+  //if(msg.total >= (channels[sender].used+cost) && msg.total <= channels[sender].max && round.eq(channels[sender].round)){//make sure not pass channel limit
+  if(await checkSig(sender, transaction, msg.signature)){
+    channels[sender].used = msg.total;
+    channels[sender].lastMsg = msg;
+    let puz = msg.puzzle.map(x => new Uint8Array(x))
+    puz = wasm.sol(puz);
+    puz = puz.map(x => Array.from(x))
+    res.send({
+      message: "puzzle solved",
+      puzzle: puz
+    });
+    return;
   }else{
+    res.send({
+      message: "invalid signature",
+    });
+    return;
+  }
+  /*}else{
     let reason;
     if(msg.total < (channels[sender].used+cost)){
       reason = "payment to enough"
@@ -150,7 +194,7 @@ app.post("/solve", async function(req, res) {
     res.send({
       message: reason,
     });
-  }
+  }*/
 });
 
 let port = process.env.PORT;

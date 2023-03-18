@@ -3,7 +3,7 @@ import { ethers } from 'ethers';
 import { usePrepareContractWrite, useContractWrite } from 'wagmi'
 //import axios from 'axios';
 const paymentRecipient = '0x5AdA39e766c416CA083d8c7e43104f2C7cF2194A';
-const contractAddress = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
+const contractAddress = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0';
 const contract = require('./Channel.json');
 //const url = "http://localhost:5000/";
 
