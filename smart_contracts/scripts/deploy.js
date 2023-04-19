@@ -4,6 +4,10 @@
 // You can also run a script with `npx hardhat run <script>`. If you do that, Hardhat
 // will compile your contracts, add the Hardhat Runtime Environment's members to the
 // global scope, and execute the script.
+require('dotenv').config()
+
+let address = process.env.SENDER_ADDRESS;
+
 const hre = require("hardhat");
 
 async function main() {
@@ -12,16 +16,16 @@ async function main() {
   const USDC = await ethers.getContractFactory("USDC");
   const usdc = await USDC.deploy(1000000000);
 
-  await usdc.deployed();
-  await usdc.transfer('0x5AdA39e766c416CA083d8c7e43104f2C7cF2194A', 1000000000)
-
   const Channel = await hre.ethers.getContractFactory("Channel");
   const channel = await Channel.deploy("Atmosphere", usdc.address);
 
   await channel.deployed();
+
+  await usdc.deployed();
+  await usdc.transfer(address, 1000000000);
   
   await otherAccount.sendTransaction({
-    to: '0x5AdA39e766c416CA083d8c7e43104f2C7cF2194A',
+    to: address,
     // Convert currency unit from ether to wei
     value: ethers.utils.parseEther('20')
   })

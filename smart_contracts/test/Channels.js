@@ -16,7 +16,7 @@ const {
       const USDC = await ethers.getContractFactory("USDC");
       const usdc = await USDC.deploy(1000000000);
       const Channel = await ethers.getContractFactory("Channel");
-      const channel = await Channel.deploy(usdc.address);//USDC
+      const channel = await Channel.deploy("Atmosphere", usdc.address);//USDC
   
       return { owner, otherAccount, channel, usdc};
     }
@@ -34,24 +34,42 @@ const {
         expect(await channel.balanceOf(owner.address)).to.equal(1000000000-200000);
         expect(await usdc.balanceOf(owner.address)).to.equal(100000);
 
-
-        await channel.open(otherAccount.address, 100000)
+        
+        await channel.fundChannel(otherAccount.address, 100000)
         let ch = await channel.getChannelByAddresses(owner.address, otherAccount.address);
         expect(await channel.balanceOf(owner.address)).to.equal(1000000000-300000);
         expect(ch.value).to.equal(100000);
-        await channel.open(otherAccount.address, 100000);
+        await channel.fundChannel(otherAccount.address, 100000);
         ch = await channel.getChannelByAddresses(owner.address, otherAccount.address);
         expect(await channel.balanceOf(owner.address)).to.equal(1000000000-400000);
         expect(ch.value).to.equal(200000);
-
-        let id = 0;
+        
+        const domain = {
+          name: "Atmosphere",
+          version: '4',
+          chainId: 31337,
+          verifyingContract: channel.address
+        }
+         
+        const types = {
+            Transaction: [
+                { name: 'to', type: 'address' },
+                { name: 'total', type: 'uint256' },
+                { name: 'round', type: 'uint256' },
+            ]
+        } 
+        
         let amount = 500;
         let round = 0;
+        const value = {
+          to: otherAccount.address,
+          total: amount,
+          round: round,
+        } 
+    
+        const signature = owner._signTypedData(domain, types, value)
 
-        const hash = await channel.getMessageHash(otherAccount.address, amount, round)
-        const sig = await owner.signMessage(ethers.utils.arrayify(hash))
-
-        await channel.connect(otherAccount).reciverCollectPayment(owner.address, amount, round, sig);
+        await channel.connect(otherAccount).reciverCollectPayment(owner.address, otherAccount.address, amount, round, signature);
         ch = await channel.getChannelByAddresses(owner.address, otherAccount.address);
         expect(ch.value).to.equal(200000-amount);
         expect(await channel.balanceOf(otherAccount.address)).to.equal(100000+amount);

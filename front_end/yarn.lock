@@ -1213,6 +1213,9 @@
   dependencies:
     "@walletconnect/window-getters" "^1.0.0"
 
+"abis@file:./../abi/abiBuilder.js":
+  "resolved" "file:../abi/abiBuilder.js"
+
 "abitype@^0.1.8":
   "integrity" "sha512-2pde0KepTzdfu19ZrzYTYVIWo69+6UbBCY4B1RDiwWgo2XZtFSJhF6C+XThuRXbbZ823J0Rw1Y5cP0NXYVcCdQ=="
   "resolved" "https://registry.npmjs.org/abitype/-/abitype-0.1.8.tgz"

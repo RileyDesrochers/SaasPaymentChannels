@@ -30,15 +30,10 @@ contract Channel is EIP712Decoder {
 	// channels is a array of channels with the index being the index ID
 	//ChannelState[] public channels;
 	mapping(address => mapping(address => ChannelState)) channels; //sender => reciver => channel
-	mapping(address => address[]) channelReciversBySender;
-	mapping(address => address[]) channelSendersByReciver;
 
-	//event Open(uint64 indexed ID, uint256 value);
-	event Fund(address indexed from, address indexed to, uint256 amount);
+	event NewChannel(address indexed from, address indexed to);
 	event Lock(address indexed from, address indexed to, uint64 time);
-	event Defund(address indexed from, address indexed to, uint256 amount);
-	event Transfer(address from, address to, uint256 amount);
-	//FIX add more events
+	event Collect(address indexed from, address indexed to);
 
 	bytes32 public immutable domainHash;
 	constructor(string memory name, address _token){
@@ -66,8 +61,6 @@ contract Channel is EIP712Decoder {
 		require(token.transferFrom(user, address(this), amount));
 		_balances[user] += amount;
 
-		emit Transfer(address(0), user, amount);
-
 		return true;
 	}
 
@@ -79,8 +72,6 @@ contract Channel is EIP712Decoder {
 			_balances[user] = Balance - amount;
 		}
 		token.transfer(user, amount);
-
-		emit Transfer(user, address(0), amount);
 
 		return true;
 	}
@@ -99,8 +90,6 @@ contract Channel is EIP712Decoder {
             // decrementing then incrementing.
             _balances[to] += amount;
         }
-
-		emit Transfer(from, to, amount);
 
         return true;
     }
@@ -155,21 +144,13 @@ contract Channel is EIP712Decoder {
 		return digest;
   	}
 
-	function getChannelReciversBySender(address sender) public view returns(address[] memory){
-		return channelReciversBySender[sender];
-	}
-
-	function getChannelSendersByReciver(address reciver) public view returns(address[] memory){
-		return channelSendersByReciver[reciver];
-	}
-
 	function getChannelByAddresses(address from, address to) public view returns (ChannelState memory) {
         return channels[from][to];
     }
 
 	//user functions-----------------------------------------------------------------------------
 
-	function open(address to, uint256 value) public {
+	function fundChannel(address to, uint256 value) public {
 		address from = msg.sender;
 		uint256 Balance = _balances[from];
 		require(value <= Balance, "you do not have the balance to fund channel");
@@ -179,15 +160,12 @@ contract Channel is EIP712Decoder {
 
 		if(channels[msg.sender][to].state == State.NONEXISTANT){
 			Counters.Counter memory round;
-
 			channels[msg.sender][to] = ChannelState(value, State.OPEN, round, 0);
-
-			channelReciversBySender[msg.sender].push(to);
-			channelSendersByReciver[to].push(msg.sender);
+			emit NewChannel(msg.sender, to);
 		}else{
 			channels[msg.sender][to].value += value;
 		}
-		emit Fund(msg.sender, to, value);
+		
 	}
 
 	function senderLock(address to) public requireOpen(msg.sender, to){
@@ -196,7 +174,11 @@ contract Channel is EIP712Decoder {
 		channels[msg.sender][to].lockTime = time;
 
 		emit Lock(msg.sender, to, time);
-	}//FIX write sender Unlock function
+	}
+
+	function senderUnlock(address to) public requireLocked(msg.sender, to){
+		channels[msg.sender][to].state = State.OPEN;
+	}
 
 	function senderWithdrawal(address to) public requireLocked(msg.sender, to){
 		uint64 lockTime = channels[msg.sender][to].lockTime;
@@ -207,34 +189,32 @@ contract Channel is EIP712Decoder {
 		_balances[msg.sender] += amount;
 
 		channels[msg.sender][to].state = State.OPEN;//reopen channel
-
-		emit Defund(msg.sender, to, amount);
 	}
 
 	//recipient functions-----------------------------------------------------------------------------
 
 	//does no require channel to be open
 	function reciverCollectPayment(address from, address to, uint256 amount, uint256 round, bytes memory sig) public {
+		require(to == msg.sender, "you need to be the reciver to cellect");
 		require(round == channels[from][msg.sender].round.current());
 		require(amount <= channels[from][msg.sender].value);
 		require(verify(from, to, amount, round, sig));
 		//address sender = channels[id].from;
 		//bytes32 messageHash = getMessageHash(msg.sender, amount, round);
 		//bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
-
 		
 		channels[from][msg.sender].value -= amount;
 		channels[from][msg.sender].round.increment();
 		_balances[msg.sender] += amount;
 
-		emit Defund(from, msg.sender, amount);
+		emit Collect(from, msg.sender);
 	}
 
 	//Testing Only----------------------------
 
-	function airdrop(uint256 amount) public returns(uint256){
+	/*function airdrop(uint256 amount) public returns(uint256){
 		_balances[msg.sender] += amount;
 		return _balances[msg.sender];
-	}
+	}*/
 
 }
